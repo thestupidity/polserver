@@ -113,7 +113,6 @@
 #include "uoexec.h"
 #include "uoexhelp.h"
 #include "uworld.h"
-#include "exscrobj.h"
 
 namespace Pol
 {
@@ -733,7 +732,7 @@ bool EMultiRefObjImp::operator==( const BObjectImp& objimp ) const
   else
     return false;
 }
-}
+}  // namespace Module
 
 namespace Core
 {
@@ -890,7 +889,7 @@ BObjectImp* UObject::set_script_member_double( const char* membername, double va
   else
     return NULL;
 }
-}
+}  // namespace Core
 
 namespace Items
 {
@@ -1666,7 +1665,7 @@ BObjectImp* Item::make_ref()
 {
   return new Module::EItemRefObjImp( this );
 }
-}
+}  // namespace Items
 namespace Mobile
 {
 using namespace Bscript;
@@ -3306,7 +3305,7 @@ BObjectImp* NPC::custom_script_method( const char* methodname, Executor& executo
   }
   return NULL;
 }
-}
+}  // namespace Mobile
 namespace Core
 {
 using namespace Bscript;
@@ -3545,7 +3544,7 @@ BObjectImp* Spellbook::script_method( const char* methodname, Executor& ex )
   else
     return NULL;
 }
-}
+}  // namespace Core
 namespace Multi
 {
 using namespace Bscript;
@@ -3729,10 +3728,15 @@ BObjectImp* UBoat::script_method_id( const int id, Executor& ex )
     const auto& desc = static_cast<const Items::BoatDesc&>( itemdesc() );
     if ( index < 0 || static_cast<size_t>( index ) >= desc.alternates.size() )
       return new BError( "Index out of range" );
-    u16 new_multiid = desc.alternates[index];
-    u16 base_multi = multiid & ~3u;
-    u16 multioffset = multiid - base_multi;
-    multiid = new_multiid + multioffset;
+
+    {
+      UBoat::BoatMoveGuard guard( this );
+      u16 new_multiid = desc.alternates[index];
+      u16 base_multi = multiid & ~3u;
+      u16 multioffset = multiid - base_multi;
+      multiid = new_multiid + multioffset;
+    }
+    transform_components( boatshape(), nullptr );
     send_display_boat_to_inrange( x, y );
     return new BLong( 1 );
   }
@@ -3808,7 +3812,7 @@ BObjectImp* UPlank::get_script_member( const char* membername ) const
   else
     return base::get_script_member( membername );
 }
-}
+}  // namespace Multi
 namespace Core
 {
 using namespace Bscript;
@@ -4060,7 +4064,7 @@ BObjectImp* UDoor::script_method( const char* methodname, Executor& ex )
   else
     return NULL;
 }
-}
+}  // namespace Core
 namespace Items
 {
 using namespace Bscript;
@@ -4338,7 +4342,7 @@ BObjectImp* UArmor::set_script_member( const char* membername, int value )
   else
     return NULL;
 }
-}
+}  // namespace Items
 namespace Module
 {
 using namespace Bscript;
@@ -4663,7 +4667,7 @@ ItemGivenEvent::~ItemGivenEvent()
     move_item( item, item->x, item->y, item->z, NULL );
   }
 }
-}
+}  // namespace Module
 namespace Core
 {
 bool UObject::script_isa( unsigned isatype ) const
@@ -4700,7 +4704,7 @@ bool Map::script_isa( unsigned isatype ) const
 {
   return ( isatype == POLCLASS_MAP ) || base::script_isa( isatype );
 }
-}
+}  // namespace Core
 
 namespace Items
 {
@@ -4723,7 +4727,7 @@ bool UWeapon::script_isa( unsigned isatype ) const
 {
   return ( isatype == Core::POLCLASS_WEAPON ) || base::script_isa( isatype );
 }
-}
+}  // namespace Items
 
 namespace Mobile
 {
@@ -4736,7 +4740,7 @@ bool NPC::script_isa( unsigned isatype ) const
 {
   return ( isatype == Core::POLCLASS_NPC ) || base::script_isa( isatype );
 }
-}
+}  // namespace Mobile
 namespace Multi
 {
 bool UMulti::script_isa( unsigned isatype ) const
@@ -4753,5 +4757,5 @@ bool UHouse::script_isa( unsigned isatype ) const
 {
   return ( isatype == Core::POLCLASS_HOUSE ) || base::script_isa( isatype );
 }
-}
-}
+}  // namespace Multi
+}  // namespace Pol
