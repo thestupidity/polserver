@@ -661,6 +661,7 @@ ObjMethod object_methods[] = {
     {MTH_DEL_BUFF, "delbuff", false},  // 150
     {MTH_CLEAR_BUFFS, "clearbuffs", false},
     {MTH_CALL, "call", false},
+    {MTH_SORTEDINSERT, "sorted_insert", false},
     {MTH_CHANGE_MULTI_ID, "set_alternate_multiid", false},
     {MTH_SET_PILOT, "pilot", false},
     {MTH_SETPROCESS, "setprocess", false},
