@@ -22,7 +22,6 @@
 #include "../bscript/executor.h"
 #include "../bscript/impstr.h"
 #include "../clib/clib.h"
-#include "../clib/compilerspecifics.h"
 #include "../clib/esignal.h"
 #include "../clib/rawtypes.h"
 #include "../clib/refptr.h"
@@ -209,11 +208,11 @@ class DebugContextObjImp : public DebugContextObjImpBase
 {
 public:
   explicit DebugContextObjImp( ref_ptr<DebugContext> rcdctx );
-  virtual const char* typeOf() const POL_OVERRIDE;
-  virtual u8 typeOfInt() const POL_OVERRIDE;
-  virtual BObjectImp* copy() const POL_OVERRIDE;
-  virtual BObjectImp* call_method( const char* methodname, Executor& ex ) POL_OVERRIDE;
-  virtual BObjectRef get_member( const char* membername ) POL_OVERRIDE;
+  virtual const char* typeOf() const override;
+  virtual u8 typeOfInt() const override;
+  virtual BObjectImp* copy() const override;
+  virtual BObjectImp* call_method( const char* methodname, Executor& ex ) override;
+  virtual BObjectRef get_member( const char* membername ) override;
 };
 DebugContextObjImp::DebugContextObjImp( ref_ptr<DebugContext> rcdctx )
     : DebugContextObjImpBase( &debugcontextobjimp_type, rcdctx )
@@ -275,7 +274,7 @@ BObjectImp* create_debug_context()
 DebugContext::DebugContext()
     : _authorized( Plib::systemstate.config.debug_password.empty() ),
       _done( false ),
-      uoexec_wptr( 0 )
+      uoexec_wptr( nullptr )
 {
 }
 
@@ -687,7 +686,7 @@ std::string DebugContext::cmd_setscript( const std::string& rest, Results& /*res
 
 std::string DebugContext::cmd_funclist( const std::string& /*rest*/, Results& results )
 {
-  if ( _script.get() == 0 )
+  if ( _script.get() == nullptr )
     return "use setscript first";
 
   // no parameters.
@@ -713,7 +712,7 @@ std::string DebugContext::cmd_funclist( const std::string& /*rest*/, Results& re
 
 std::string DebugContext::cmd_srcprof( const std::string& rest, Results& results )
 {
-  if ( _script.get() == 0 )
+  if ( _script.get() == nullptr )
     return "use setscript first";
 
   // parameter: file#
@@ -748,7 +747,7 @@ std::string DebugContext::cmd_srcprof( const std::string& rest, Results& results
 
 std::string DebugContext::cmd_funcprof( const std::string& /*rest*/, Results& /*results*/ )
 {
-  if ( _script.get() == 0 )
+  if ( _script.get() == nullptr )
     return "use setscript first";
 
   return "";
@@ -984,7 +983,7 @@ std::string DebugContext::cmd_files( Results& results )
 {
   const EScriptProgram* prog = nullptr;
 
-  if ( _script.get() != 0 )
+  if ( _script.get() != nullptr )
     prog = _script.get();
   else if ( uoexec_wptr.exists() )
     prog = uoexec_wptr.get_weakptr()->prog();
@@ -1006,7 +1005,7 @@ std::string DebugContext::cmd_filecont( const std::string& rest, Results& result
 {
   const EScriptProgram* prog = nullptr;
 
-  if ( _script.get() != 0 )
+  if ( _script.get() != nullptr )
     prog = _script.get();
   else if ( uoexec_wptr.exists() )
     prog = uoexec_wptr.get_weakptr()->prog();
@@ -1282,7 +1281,7 @@ class DebugClientThread : public Clib::SocketClientThread
 {
 public:
   DebugClientThread( Clib::SocketListener& SL ) : Clib::SocketClientThread( SL ) {}
-  virtual void run() POL_OVERRIDE;
+  virtual void run() override;
 };
 
 void DebugClientThread::run()

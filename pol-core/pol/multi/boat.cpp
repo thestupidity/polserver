@@ -514,7 +514,7 @@ void UBoat::send_boat_newly_inrange( Network::Client* client )
 
   for ( auto& component : Components )
   {
-    if ( component != NULL && !component->orphan() )
+    if ( component != nullptr && !component->orphan() )
     {
       POLLOG_INFO << "send component (0xF7) 0x" << fmt::hex( component->serial ) << " to "
                   << client->chr->name() << " d "

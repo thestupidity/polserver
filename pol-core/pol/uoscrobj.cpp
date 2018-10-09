@@ -3647,7 +3647,7 @@ BObjectImp* UBoat::get_script_member_id( const int id ) const
     {
       return new Module::ECharacterRefObjImp( mountpiece->GetCharacterOwner() );
     }
-    return NULL;
+    return nullptr;
   default:
     return nullptr;
   }
