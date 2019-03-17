@@ -35,6 +35,65 @@ namespace Pol
 {
 namespace Core
 {
+WorldDecay::DecayItem::DecayItem( poltime_t decaytime, ItemRef itemref )
+    : time( decaytime ), obj( itemref )
+{
+}
+
+WorldDecay::WorldDecay() : decay_cont() {}
+
+void WorldDecay::addObject( Items::Item* item, poltime_t decaytime )
+{
+  auto& indexByObj = decay_cont.get<IndexByObject>();
+  auto res = indexByObj.emplace( decaytime, ItemRef( item ) );
+  if ( !res.second )  // emplace failed, .first is itr of "blocking" entry
+    indexByObj.modify( res.first, [&decaytime]( DecayItem& i ) { i.time = decaytime; } );
+}
+
+void WorldDecay::removeObject( Items::Item* item )
+{
+  auto& indexByObj = decay_cont.get<IndexByObject>();
+  indexByObj.erase( item->serial_ext );  // ignore error?
+}
+
+poltime_t WorldDecay::getDecayTime( Items::Item* obj ) const
+{
+  auto& indexByObj = decay_cont.get<IndexByObject>();
+  const auto& entry = indexByObj.find( obj->serial_ext );
+  if ( entry == indexByObj.cend() )
+    return 0;  // todo complain
+  return entry->time;
+}
+
+void WorldDecay::decayTask()
+{
+  auto& indexByTime = decay_cont.get<IndexByTime>();
+  auto now = poltime();
+  std::vector<u32> destroy_serials;
+  for ( auto& v : indexByTime )
+  {
+    if ( v.time > now )
+      break;
+
+    if ( true )//todo
+    {
+      Multi::UMulti* multi = nullptr;
+      const Items::ItemDesc& descriptor = v.obj->itemdesc();
+      if ( descriptor.decays_on_multis )
+        multi = v.obj->realm->find_supporting_multi( v.obj->x, v.obj->y, v.obj->z );
+
+      v.obj->spill_contents( multi );
+      destroy_item( v.obj.get() );
+      destroy_serials.push_back( v.obj->serial_ext );
+    }
+  }
+  auto& indexByObj = decay_cont.get<IndexByObject>();
+  for ( const auto& serial : destroy_serials )
+  {
+    indexByObj.erase( serial );
+  }
+}
+
 ///
 /// [1] Item Decay Criteria
 ///     An Item is allowed to decay if ALL of the following are true:
@@ -276,7 +335,8 @@ void decay_single_thread( void* arg )
             stateManager.decay_statistics.temp_count_decayed = 0;
             stateManager.decay_statistics.temp_count_active = 0;
             POLLOG_INFO.Format(
-                "DECAY STATISTICS: decayed: max {} mean {} variance {} runs {} active max {} mean "
+                "DECAY STATISTICS: decayed: max {} mean {} variance {} runs {} active max {} "
+                "mean "
                 "{} variance {} runs {}\n" )
                 << stateManager.decay_statistics.decayed.max()
                 << stateManager.decay_statistics.decayed.mean()
@@ -310,5 +370,5 @@ void decay_single_thread( void* arg )
     pol_sleep_ms( sleeptime );
   }
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol
