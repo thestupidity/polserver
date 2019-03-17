@@ -35,6 +35,12 @@ namespace Pol
 {
 namespace Core
 {
+WorldDecay::SerialFromDecayItem::result_type WorldDecay::SerialFromDecayItem::operator()(
+    const WorldDecay::DecayItem& i ) const
+{
+  return i.obj->serial_ext;
+}
+
 WorldDecay::DecayItem::DecayItem( poltime_t decaytime, ItemRef itemref )
     : time( decaytime ), obj( itemref )
 {
@@ -75,7 +81,7 @@ void WorldDecay::decayTask()
     if ( v.time > now )
       break;
 
-    if ( true )//todo
+    if ( true )  // todo
     {
       Multi::UMulti* multi = nullptr;
       const Items::ItemDesc& descriptor = v.obj->itemdesc();

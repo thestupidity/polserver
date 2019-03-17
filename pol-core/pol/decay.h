@@ -6,7 +6,6 @@
 #ifndef __DECAY_H
 #define __DECAY_H
 
-#include "item/item.h"
 #include "polclock.h"
 #include "reftypes.h"
 #include "uobject.h"
@@ -18,6 +17,10 @@
 
 namespace Pol
 {
+namespace Items
+{
+class Item;
+}
 namespace Core
 {
 void decay_items();
@@ -49,8 +52,9 @@ private:
   struct SerialFromDecayItem
   {
     typedef u32 result_type;
-    result_type operator()( const DecayItem& i ) const { return i.obj->serial_ext; }
+    result_type operator()( const DecayItem& i ) const;
   };
+  // multiindex container unique by serial_ext and ordered by decaytime
   using DecayContainer = boost::multi_index_container<
       DecayItem, boost::multi_index::indexed_by<
                      boost::multi_index::hashed_unique<boost::multi_index::tag<IndexByObject>,
