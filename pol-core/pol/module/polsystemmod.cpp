@@ -49,7 +49,6 @@ namespace Pol
 {
 namespace Core
 {
-void decay_thread_shadow( void* );
 void reload_configuration();
 }
 namespace Module
@@ -87,7 +86,7 @@ PackageObjImp::PackageObjImp( const PackagePtrHolder& other )
     : PackageObjImpBase( &packageobjimp_type, other )
 {
 }
-}
+}  // namespace Module
 namespace Bscript
 {
 using namespace Module;
@@ -113,7 +112,7 @@ TmplExecutorModule<PolSystemExecutorModule>::FunctionTable
         {"MD5Encrypt", &PolSystemExecutorModule::mf_MD5Encrypt},
         {"LogCPropProfile", &PolSystemExecutorModule::mf_LogCPropProfile},
 };
-}
+}  // namespace Bscript
 namespace Module
 {
 using namespace Bscript;
@@ -432,16 +431,6 @@ BObjectImp* PolSystemExecutorModule::mf_AddRealm( /*name,base*/ )
   if ( Core::defined_realm( realm_name->value() ) )
     return new BError( "Realmname already defined." );
   Core::add_realm( realm_name->value(), baserealm );
-  if ( Core::settingsManager.ssopt.decay_items )
-  {
-    if ( !Plib::systemstate.config.single_thread_decay )
-    {
-      std::ostringstream thname;
-      thname << "Decay_" << realm_name->value();
-      threadhelp::start_thread( Core::decay_thread_shadow, thname.str().c_str(),
-                                (void*)Core::find_realm( realm_name->value() ) );
-    }
-  }
   return new BLong( 1 );
 }
 
@@ -519,5 +508,5 @@ BObjectImp* PolSystemExecutorModule::mf_LogCPropProfile()
   ofs.close();
   return new BLong( 1 );
 }
-}
-}
+}  // namespace Module
+}  // namespace Pol

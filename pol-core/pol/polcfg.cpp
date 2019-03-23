@@ -31,12 +31,12 @@
 #include "../clib/strutil.h"
 #include "../plib/systemstate.h"
 // TODO: get rid of the dependencies and move to plib
-#include "core.h" // todo save_full does not belong here
-#include "globals/state.h" // todo polsig dependency
-#include "globals/uvars.h" // todo split write task
+#include "core.h"           // todo save_full does not belong here
+#include "globals/state.h"  // todo polsig dependency
+#include "globals/uvars.h"  // todo split write task
 #include "objtype.h"
-#include "polsig.h" // thread_checkpoint
-#include "proplist.h" // todo like uvars
+#include "polsig.h"    // thread_checkpoint
+#include "proplist.h"  // todo like uvars
 
 namespace Pol
 {
@@ -251,7 +251,7 @@ void PolConfig::read_pol_config( bool initial_load )
   Plib::systemstate.config.show_realm_info = elem.remove_bool( "ShowRealmInfo", false );
 
   Plib::systemstate.config.enforce_mount_objtype = elem.remove_bool( "EnforceMountObjtype", false );
-  Plib::systemstate.config.single_thread_decay = elem.remove_bool( "SingleThreadDecay", false );
+  Plib::systemstate.config.decaytask = elem.remove_bool( "DecayTask", false );
   Plib::systemstate.config.thread_decay_statistics =
       elem.remove_bool( "ThreadDecayStatistics", false );
 
@@ -311,5 +311,5 @@ bool PolConfig::report_program_aborts()
 {
   return Clib::ExceptionParser::programAbortReporting();
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol

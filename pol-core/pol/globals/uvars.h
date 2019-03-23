@@ -23,6 +23,7 @@
 #include "../../plib/clidata.h"
 #include "../action.h"
 #include "../cmdlevel.h"
+#include "../decay.h"
 #include "../layers.h"
 #include "../menu.h"
 #include "../reftypes.h"
@@ -155,6 +156,8 @@ public:
 
   std::vector<Menu> menus;
 
+  WorldDecay world_decay;
+
   Storage storage;
 
   Parties parties;
@@ -174,6 +177,7 @@ public:
   std::unique_ptr<PeriodicTask> write_account_task;
   std::unique_ptr<PeriodicTask> update_sysload_task;
   std::unique_ptr<PeriodicTask> reload_pol_cfg_task;
+  std::unique_ptr<PeriodicTask> decay_task;
 
   std::vector<Mobile::Attribute*> attributes;
   unsigned numAttributes;

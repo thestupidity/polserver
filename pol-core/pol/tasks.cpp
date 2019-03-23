@@ -341,11 +341,13 @@ void start_tasks()
   gamestate.reload_accounts_task->start();
   gamestate.update_sysload_task->start();
   gamestate.reload_pol_cfg_task->start();
+  if ( Plib::systemstate.config.decaytask )
+    gamestate.decay_task->start();
 }
 
 // script loads
 // script starts
 // combat operations
 // skill checks
-}
-}
+}  // namespace Core
+}  // namespace Pol

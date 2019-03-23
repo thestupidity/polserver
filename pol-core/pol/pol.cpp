@@ -657,8 +657,6 @@ void combined_thread( void )
   }
 }
 
-void decay_thread( void* );
-void decay_thread_shadow( void* );
 void decay_single_thread( void* );
 
 template <class T>
@@ -826,23 +824,10 @@ void start_threads()
 
   if ( settingsManager.ssopt.decay_items )
   {
-    checkpoint( "start decay thread" );
-    if ( Plib::systemstate.config.single_thread_decay )
+    if ( !Plib::systemstate.config.decaytask )
     {
+      checkpoint( "start decay thread" );
       threadhelp::start_thread( decay_single_thread, "Decay", nullptr );
-    }
-    else
-    {
-      std::vector<Realms::Realm*>::iterator itr;
-      for ( itr = gamestate.Realms.begin(); itr != gamestate.Realms.end(); ++itr )
-      {
-        std::ostringstream thname;
-        thname << "Decay_" << ( *itr )->name();
-        if ( ( *itr )->is_shadowrealm )
-          threadhelp::start_thread( decay_thread_shadow, thname.str().c_str(), (void*)( *itr ) );
-        else
-          threadhelp::start_thread( decay_thread, thname.str().c_str(), (void*)( *itr ) );
-      }
     }
   }
   else

@@ -90,6 +90,7 @@ GameState::GameState()
       weatherdef( nullptr ),
       musicdef( nullptr ),
       menus(),
+      world_decay(),
       storage(),
       parties(),
       guilds(),
@@ -107,6 +108,8 @@ GameState::GameState()
       write_account_task( new PeriodicTask( Accounts::write_account_data_task, 60, "WRITEACCT" ) ),
       update_sysload_task( new PeriodicTask( update_sysload, 1, "SYSLOAD" ) ),
       reload_pol_cfg_task( new PeriodicTask( PolConfig::reload_pol_cfg, 30, "LOADPOLCFG" ) ),
+      decay_task(
+          new PeriodicTask( []() { gamestate.world_decay.decayTask(); }, 60, "DecayTask" ) ),
 
       attributes(),
       numAttributes( 0 ),
