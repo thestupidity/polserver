@@ -121,6 +121,9 @@ public:
   void disable_decay();
   bool can_decay() const;
 
+  bool has_decay_task() const;
+  void set_decay_task( bool val );  // internal method should only be used in WorldDecay class
+
   bool setlayer( unsigned char layer );
   virtual bool setgraphic( u16 newobjtype ) override;
   virtual bool setcolor( u16 newcolor ) override;

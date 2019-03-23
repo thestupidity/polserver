@@ -20,6 +20,7 @@
 #include "globals/uvars.h"
 #include "item/item.h"
 #include "item/itemdesc.h"
+#include "objtype.h"
 #include "polcfg.h"
 #include "polsem.h"
 #include "realms/realm.h"
@@ -50,24 +51,40 @@ WorldDecay::WorldDecay() : decay_cont() {}
 
 void WorldDecay::addObject( Items::Item* item, poltime_t decaytime )
 {
+  // TODO onmovablechange needs to add/remove object
+  // multi creation/destruction needs to add/remove objects
+  // so just here as a reminder, dont like the checks here
+  if ( item->orphan() || ( !item->movable() && item->objtype_ != UOBJ_CORPSE ) )
+    return;
+  if ( !item->itemdesc().decays_on_multis )
+  {
+    auto multi = item->realm->find_supporting_multi( item->x, item->y, item->z );
+    if ( multi != nullptr )
+      return;
+  }
   auto& indexByObj = decay_cont.get<IndexByObject>();
   auto res = indexByObj.emplace( decaytime, ItemRef( item ) );
   if ( !res.second )  // emplace failed, .first is itr of "blocking" entry
     indexByObj.modify( res.first, [&decaytime]( DecayItem& i ) { i.time = decaytime; } );
+  else
+    item->set_decay_task( true );
 }
 
 void WorldDecay::removeObject( Items::Item* item )
 {
   auto& indexByObj = decay_cont.get<IndexByObject>();
   indexByObj.erase( item->serial_ext );  // ignore error?
+  item->set_decay_task( false );
 }
 
 poltime_t WorldDecay::getDecayTime( Items::Item* obj ) const
 {
+  if ( !obj->has_decay_task() )
+    return 0;
   auto& indexByObj = decay_cont.get<IndexByObject>();
   const auto& entry = indexByObj.find( obj->serial_ext );
   if ( entry == indexByObj.cend() )
-    return 0;  // todo complain
+    return 0;  // TODO error
   return entry->time;
 }
 
@@ -75,28 +92,70 @@ void WorldDecay::decayTask()
 {
   auto& indexByTime = decay_cont.get<IndexByTime>();
   auto now = poltime();
-  std::vector<u32> destroy_serials;
+  std::vector<DecayItem> decayitems;
+  // need to collect possible items
+  // since script calls could add/remove in container
   for ( auto& v : indexByTime )
   {
     if ( v.time > now )
       break;
-
-    if ( true )  // todo
-    {
-      Multi::UMulti* multi = nullptr;
-      const Items::ItemDesc& descriptor = v.obj->itemdesc();
-      if ( descriptor.decays_on_multis )
-        multi = v.obj->realm->find_supporting_multi( v.obj->x, v.obj->y, v.obj->z );
-
-      v.obj->spill_contents( multi );
-      destroy_item( v.obj.get() );
-      destroy_serials.push_back( v.obj->serial_ext );
-    }
+    decayitems.push_back( v );
   }
-  auto& indexByObj = decay_cont.get<IndexByObject>();
-  for ( const auto& serial : destroy_serials )
+  if ( decayitems.empty() )  // early out
+    return;
+
+  std::vector<Items::Item*> destroyeditems;
+  std::vector<Items::Item*> delayeditems;
+  for ( auto& v : decayitems )
   {
-    indexByObj.erase( serial );
+    auto item = v.obj.get();
+    if ( item->orphan() )
+    {
+      destroyeditems.push_back( item );
+      continue;
+    }
+    if ( item->inuse() )
+    {
+      delayeditems.push_back( item );
+      continue;
+    }
+    if ( gamestate.system_hooks.can_decay )
+    {
+      if ( !gamestate.system_hooks.can_decay->call( item->make_ref() ) )
+      {
+        delayeditems.push_back( item );
+        continue;
+      }
+    }
+
+    const auto& descriptor = item->itemdesc();
+    if ( !descriptor.destroy_script.empty() )
+    {
+      if ( !call_script( descriptor.destroy_script, item->make_ref() ) )
+      {
+        delayeditems.push_back( item );
+        continue;
+      }
+    }
+    Multi::UMulti* multi = nullptr;
+    if ( descriptor.decays_on_multis )
+      multi = item->realm->find_supporting_multi( item->x, item->y, item->z );
+
+    item->spill_contents( multi );
+    destroy_item( item );
+    destroyeditems.push_back( item );
+  }
+
+  auto& indexByObj = decay_cont.get<IndexByObject>();
+  for ( const auto& item : destroyeditems )
+  {
+    indexByObj.erase( item->serial_ext );
+    item->set_decay_task( false );
+  }
+  for ( const auto& item : delayeditems )
+  {
+    if ( getDecayTime( item ) <= now )   // check if script has removed it or changed time
+      addObject( item, now + 10 * 60 );  // delay by 10minutes like old decay system would behave
   }
 }
 

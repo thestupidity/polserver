@@ -40,7 +40,7 @@ namespace Bscript
 {
 class BObjectImp;
 class Executor;
-}
+}  // namespace Bscript
 namespace Clib
 {
 class ConfigElem;
@@ -50,17 +50,17 @@ namespace Items
 class Item;
 class UArmor;
 class UWeapon;
-}
+}  // namespace Items
 namespace Mobile
 {
 class Character;
 class NPC;
-}
+}  // namespace Mobile
 namespace Multi
 {
 class UMulti;
 class UBoat;
-}
+}  // namespace Multi
 namespace Core
 {
 class UContainer;
@@ -139,12 +139,16 @@ enum class OBJ_FLAGS : u16
   CONTENT_TO_GRAVE = 1 << 8,    // UCorpse flag
   NO_DROP = 1 << 9,             // Item flag
   NO_DROP_EXCEPTION = 1 << 10,  // Container/Character flag
+  DECAY_TASK = 1 << 10,         // Item flag
 };
 
 /**
  * @warning if you add fields, be sure to update Items::create().
  */
-class UObject : protected ref_counted, public ULWObject, public DynamicPropsHolder
+class UObject
+    : protected ref_counted
+    , public ULWObject
+    , public DynamicPropsHolder
 {
 public:
   virtual std::string name() const;
@@ -320,7 +324,7 @@ inline bool IsItem( u32 serial )
 {
   return ( serial & 0x40000000Lu ) ? true : false;
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol
 
 #endif

@@ -993,6 +993,15 @@ void Item::disable_decay()
   decayat_gameclock_ = 0;
 }
 
+bool Item::has_decay_task() const
+{
+  return flags_.get( Core::OBJ_FLAGS::DECAY_TASK );
+}
+
+void Item::set_decay_task( bool val )
+{
+  flags_.change( Core::OBJ_FLAGS::DECAY_TASK, val );
+}
 /////////////////////////////////////////////////////////////////////////////
 // Equip-Script related functions
 /////////////////////////////////////////////////////////////////////////////
