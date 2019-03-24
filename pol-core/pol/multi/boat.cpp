@@ -1196,7 +1196,7 @@ bool UBoat::move_xy( unsigned short newx, unsigned short newy, int flags, Realms
     BoatContext bc( *this );
 
     set_dirty();
-    move_multi_in_world( x, y, newx, newy, this, oldrealm );
+    move_boat_in_world( x, y, newx, newy, this, oldrealm );
 
     u16 oldx = x;
     u16 oldy = y;
@@ -1247,7 +1247,7 @@ bool UBoat::move( Plib::UFACING dir, u8 speed, bool relative )
 
     set_dirty();
 
-    move_multi_in_world( x, y, newx, newy, this, realm );
+    move_boat_in_world( x, y, newx, newy, this, realm );
 
     u16 oldx = x;
     u16 oldy = y;

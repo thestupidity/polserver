@@ -30,7 +30,7 @@ namespace Core
 class ItemsVector;
 class ULWObject;
 struct Zone;
-}
+}  // namespace Core
 namespace Mobile
 {
 class Character;
@@ -50,7 +50,7 @@ class MapTileServer;
 class StaticEntryList;
 class StaticServer;
 struct MAPTILE_CELL;
-}
+}  // namespace Plib
 namespace Realms
 {
 typedef std::vector<Multi::UMulti*> MultiList;
@@ -86,8 +86,8 @@ public:
   void add_mobile( const Mobile::Character& chr, WorldChangeReason reason );
   void remove_mobile( const Mobile::Character& chr, WorldChangeReason reason );
 
-  void add_toplevel_item( const Items::Item& item );
-  void remove_toplevel_item( const Items::Item& item );
+  void add_toplevel_item( Items::Item* item );
+  void remove_toplevel_item( Items::Item* item );
 
   void add_multi( const Multi::UMulti& multi );
   void remove_multi( const Multi::UMulti& multi );
@@ -203,24 +203,6 @@ inline unsigned int Realm::multi_count() const
   return _multi_count;
 }
 
-inline void Realm::add_toplevel_item( const Items::Item& /*item*/ )
-{
-  ++_toplevel_item_count;
-}
-inline void Realm::remove_toplevel_item( const Items::Item& /*item*/ )
-{
-  --_toplevel_item_count;
-}
-
-inline void Realm::add_multi( const Multi::UMulti& /*multi*/ )
-{
-  ++_multi_count;
-}
-inline void Realm::remove_multi( const Multi::UMulti& /*multi*/ )
-{
-  --_multi_count;
-}
-
 inline unsigned Realm::getUOMapID() const
 {
   return _descriptor.uomapid;
@@ -246,6 +228,6 @@ inline unsigned short Realm::height() const
 {
   return _descriptor.height;
 }
-}
-}
+}  // namespace Realms
+}  // namespace Pol
 #endif

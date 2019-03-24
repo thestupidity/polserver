@@ -122,6 +122,9 @@ public:
   bool can_decay() const;
 
   bool has_decay_task() const;
+  bool has_disabled_decay_task() const;
+  void disable_decay_task( bool val );
+  bool can_add_to_decay_task() const;
   void set_decay_task( bool val );  // internal method should only be used in WorldDecay class
 
   bool setlayer( unsigned char layer );

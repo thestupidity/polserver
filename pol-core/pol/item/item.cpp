@@ -33,6 +33,7 @@
 #include "../objtype.h"
 #include "../polcfg.h"
 #include "../proplist.h"
+#include "../realms/realm.h"
 #include "../resource.h"
 #include "../scrdef.h"
 #include "../scrsched.h"
@@ -881,6 +882,16 @@ void Item::on_color_changed()
 void Item::on_movable_changed()
 {
   update_item_to_inrange( this );
+  if ( Plib::systemstate.config.decaytask && objtype_ != UOBJ_CORPSE )
+  {
+    if ( movable() && !has_decay_task() )
+    {
+      if ( can_add_to_decay_task() )
+        Core::gamestate.world_decay.addObject( this, itemdesc().decay_time * 60 );
+    }
+    else if ( !movable() && has_decay_task() )
+      Core::gamestate.world_decay.removeObject( this );
+  }
 }
 
 void Item::on_invisible_changed()
@@ -1001,7 +1012,34 @@ bool Item::has_decay_task() const
 void Item::set_decay_task( bool val )
 {
   flags_.change( Core::OBJ_FLAGS::DECAY_TASK, val );
+  set_dirty();
 }
+
+bool Item::has_disabled_decay_task() const
+{
+  return flags_.get( Core::OBJ_FLAGS::DISABLE_DECAY_TASK );
+}
+
+void Item::disable_decay_task( bool val )
+{
+  flags_.change( Core::OBJ_FLAGS::DISABLE_DECAY_TASK, val );
+  if ( has_decay_task() )
+    Core::gamestate.world_decay.removeObject( this );
+  set_dirty();
+}
+
+bool Item::can_add_to_decay_task() const
+{
+  if ( orphan() || has_disabled_decay_task() || ( !movable() && objtype_ != UOBJ_CORPSE ) )
+    return false;
+  if ( !itemdesc().decays_on_multis )
+  {
+    if ( realm->find_supporting_multi( x, y, z ) != nullptr )
+      return false;
+  }
+  return true;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Equip-Script related functions
 /////////////////////////////////////////////////////////////////////////////

@@ -135,11 +135,12 @@ enum class OBJ_FLAGS : u16
   MOVABLE = 1 << 4,
   IN_USE = 1 << 5,
   INVISIBLE = 1 << 6,
-  LOCKED = 1 << 7,              // ULockable flag
-  CONTENT_TO_GRAVE = 1 << 8,    // UCorpse flag
-  NO_DROP = 1 << 9,             // Item flag
-  NO_DROP_EXCEPTION = 1 << 10,  // Container/Character flag
-  DECAY_TASK = 1 << 10,         // Item flag
+  LOCKED = 1 << 7,               // ULockable flag
+  CONTENT_TO_GRAVE = 1 << 8,     // UCorpse flag
+  NO_DROP = 1 << 9,              // Item flag
+  NO_DROP_EXCEPTION = 1 << 10,   // Container/Character flag
+  DECAY_TASK = 1 << 10,          // Item flag
+  DISABLE_DECAY_TASK = 1 << 10,  // Item flag
 };
 
 /**

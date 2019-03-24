@@ -34,8 +34,8 @@ void add_item_to_world( Items::Item* item )
 
   passert( std::find( zone.items.begin(), zone.items.end(), item ) == zone.items.end() );
 
-  item->realm->add_toplevel_item( *item );
   zone.items.push_back( item );
+  item->realm->add_toplevel_item( item );
 }
 
 void remove_item_from_world( Items::Item* item )
@@ -62,15 +62,15 @@ void remove_item_from_world( Items::Item* item )
     passert( itr != zone.items.end() );
   }
 
-  item->realm->remove_toplevel_item( *item );
   zone.items.erase( itr );
+  item->realm->remove_toplevel_item( item );
 }
 
 void add_multi_to_world( Multi::UMulti* multi )
 {
   Zone& zone = getzone( multi->x, multi->y, multi->realm );
   zone.multis.push_back( multi );
-  multi->realm->add_multi( *multi );
+  multi->realm->add_multi( *multi );  // needs to be the last
 }
 
 void remove_multi_from_world( Multi::UMulti* multi )
@@ -80,13 +80,15 @@ void remove_multi_from_world( Multi::UMulti* multi )
 
   passert( itr != zone.multis.end() );
 
-  multi->realm->remove_multi( *multi );
   zone.multis.erase( itr );
+  multi->realm->remove_multi( *multi );  // needs to be the last
 }
 
-void move_multi_in_world( unsigned short oldx, unsigned short oldy, unsigned short newx,
-                          unsigned short newy, Multi::UMulti* multi, Realms::Realm* oldrealm )
+void move_boat_in_world( unsigned short oldx, unsigned short oldy, unsigned short newx,
+                         unsigned short newy, Multi::UMulti* multi, Realms::Realm* oldrealm )
 {
+  // if this moves also houses, the toplevel items at new location need to be checked for decay
+  // for boats I (turley) would say its fine to ignore it
   Zone& oldzone = getzone( oldx, oldy, oldrealm );
   Zone& newzone = getzone( newx, newy, multi->realm );
 
@@ -243,8 +245,8 @@ void MoveItemWorldPosition( unsigned short oldx, unsigned short oldy, Items::Ite
 
   if ( oldrealm != item->realm )
   {
-    oldrealm->remove_toplevel_item( *item );
-    item->realm->add_toplevel_item( *item );
+    oldrealm->remove_toplevel_item( item );
+    item->realm->add_toplevel_item( item );
   }
 }
 
@@ -404,5 +406,5 @@ void optimize_zones()
     }
   }
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol

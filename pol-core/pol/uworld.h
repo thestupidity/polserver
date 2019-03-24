@@ -42,8 +42,8 @@ void remove_item_from_world( Items::Item* item );
 
 void add_multi_to_world( Multi::UMulti* multi );
 void remove_multi_from_world( Multi::UMulti* multi );
-void move_multi_in_world( unsigned short oldx, unsigned short oldy, unsigned short newx,
-                          unsigned short newy, Multi::UMulti* multi, Realms::Realm* oldrealm );
+void move_boat_in_world( unsigned short oldx, unsigned short oldy, unsigned short newx,
+                         unsigned short newy, Multi::UMulti* multi, Realms::Realm* oldrealm );
 
 void SetCharacterWorldPosition( Mobile::Character* chr, Realms::WorldChangeReason reason );
 void ClrCharacterWorldPosition( Mobile::Character* chr, Realms::WorldChangeReason reason );
