@@ -168,6 +168,8 @@ bool UHouse::add_component( Items::Item* item, s32 xoff, s32 yoff, s16 zoff )
   item->y = newy;
   item->z = newz;
   item->disable_decay();
+  if ( Plib::systemstate.config.decaytask )
+    item->disable_decay_task( true );
   item->movable( false );
   item->realm = realm;
   update_item_to_inrange( item );
@@ -984,7 +986,7 @@ void UHouse::walk_on( Mobile::Character* chr )
         ex->pushArg( new Module::ECharacterRefObjImp( chr ) );
       }
 
-      ex->priority(100);
+      ex->priority( 100 );
 
       if ( ex->setProgram( prog.get() ) )
       {

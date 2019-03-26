@@ -139,8 +139,8 @@ enum class OBJ_FLAGS : u16
   CONTENT_TO_GRAVE = 1 << 8,     // UCorpse flag
   NO_DROP = 1 << 9,              // Item flag
   NO_DROP_EXCEPTION = 1 << 10,   // Container/Character flag
-  DECAY_TASK = 1 << 10,          // Item flag
-  DISABLE_DECAY_TASK = 1 << 10,  // Item flag
+  DECAY_TASK = 1 << 11,          // Item flag
+  DISABLE_DECAY_TASK = 1 << 12,  // Item flag
 };
 
 /**

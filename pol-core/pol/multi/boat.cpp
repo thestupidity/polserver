@@ -1491,6 +1491,13 @@ void UBoat::register_object( UObject* obj )
   {
     set_dirty();
     travellers_.push_back( Traveller( obj ) );
+    if ( Core::IsItem( obj->serial ) )
+    {
+      Items::Item* item = static_cast<Items::Item*>( obj );
+      if ( Plib::systemstate.config.decaytask && item->has_decay_task() &&
+           !item->can_add_to_decay_task() )
+        Core::gamestate.world_decay.removeObject( item );
+    }
   }
 }
 
@@ -1502,6 +1509,13 @@ void UBoat::unregister_object( UObject* obj )
   {
     set_dirty();
     travellers_.erase( this_traveller );
+    if ( Core::IsItem( obj->serial ) )
+    {
+      Items::Item* item = static_cast<Items::Item*>( obj );
+      if ( Plib::systemstate.config.decaytask && !item->has_decay_task() &&
+           item->can_add_to_decay_task( false ) )
+        Core::gamestate.world_decay.addObject( item, item->itemdesc().decay_time * 60 );
+    }
   }
 }
 
@@ -1575,9 +1589,14 @@ void UBoat::readProperties( Clib::ConfigElem& elem )
         if ( BoatShape::objtype_is_component( item->objtype_ ) )
         {
           Components.push_back( Component( item ) );
+          if ( Plib::systemstate.config.decaytask )
+            item->disable_decay_task( true );
         }
         else if ( on_ship( bc, item ) )
         {
+          if ( Plib::systemstate.config.decaytask )
+            if ( item->has_decay_task() && !item->itemdesc().decays_on_multis )
+              Core::gamestate.world_decay.removeObject( item );
           travellers_.push_back( Traveller( item ) );
         }
       }
@@ -1601,6 +1620,8 @@ void UBoat::readProperties( Clib::ConfigElem& elem )
       if ( BoatShape::objtype_is_component( item->objtype_ ) )
       {
         Components.push_back( Component( item ) );
+        if ( Plib::systemstate.config.decaytask )
+          item->disable_decay_task( true );
       }
     }
   }
@@ -1719,6 +1740,8 @@ void UBoat::create_components()
     component->y = y + itr->ydelta;
     component->z = z + static_cast<s8>( itr->zdelta );
     component->disable_decay();
+    if ( Plib::systemstate.config.decaytask )
+      component->disable_decay_task( true );
     component->movable( false );
     component->realm = realm;
     add_item_to_world( component );

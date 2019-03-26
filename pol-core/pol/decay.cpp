@@ -14,8 +14,8 @@
 
 #include "../clib/esignal.h"
 #include "../clib/logfacility.h"
+#include "../clib/timer.h"
 #include "../plib/systemstate.h"
-#include "gameclck.h"
 #include "globals/state.h"
 #include "globals/uvars.h"
 #include "item/item.h"
@@ -42,26 +42,15 @@ WorldDecay::SerialFromDecayItem::result_type WorldDecay::SerialFromDecayItem::op
   return i.obj->serial_ext;
 }
 
-WorldDecay::DecayItem::DecayItem( poltime_t decaytime, ItemRef itemref )
+WorldDecay::DecayItem::DecayItem( gameclock_t decaytime, ItemRef itemref )
     : time( decaytime ), obj( itemref )
 {
 }
 
 WorldDecay::WorldDecay() : decay_cont() {}
 
-void WorldDecay::addObject( Items::Item* item, poltime_t decaytime )
+void WorldDecay::addObject( Items::Item* item, gameclock_t decaytime )
 {
-  // TODO onmovablechange needs to add/remove object
-  // multi creation/destruction needs to add/remove objects
-  // so just here as a reminder, dont like the checks here
-  if ( item->orphan() || ( !item->movable() && item->objtype_ != UOBJ_CORPSE ) )
-    return;
-  if ( !item->itemdesc().decays_on_multis )
-  {
-    auto multi = item->realm->find_supporting_multi( item->x, item->y, item->z );
-    if ( multi != nullptr )
-      return;
-  }
   auto& indexByObj = decay_cont.get<IndexByObject>();
   auto res = indexByObj.emplace( decaytime, ItemRef( item ) );
   if ( !res.second )  // emplace failed, .first is itr of "blocking" entry
@@ -77,7 +66,7 @@ void WorldDecay::removeObject( Items::Item* item )
   item->set_decay_task( false );
 }
 
-poltime_t WorldDecay::getDecayTime( Items::Item* obj ) const
+gameclock_t WorldDecay::getDecayTime( Items::Item* obj ) const
 {
   if ( !obj->has_decay_task() )
     return 0;
@@ -88,11 +77,33 @@ poltime_t WorldDecay::getDecayTime( Items::Item* obj ) const
   return entry->time;
 }
 
+gameclock_t WorldDecay::getDecayTime( const Items::Item* obj ) const
+{
+  return getDecayTime( const_cast<Items::Item*>( obj ) );
+}
+
 void WorldDecay::decayTask()
 {
   auto& indexByTime = decay_cont.get<IndexByTime>();
-  auto now = poltime();
+  auto now = read_gameclock();
   std::vector<DecayItem> decayitems;
+  bool statistics = Plib::systemstate.config.thread_decay_statistics;
+  if ( statistics )
+    stateManager.decay_statistics.active_decay.update( indexByTime.size() );
+  auto decayStats = []() {
+    POLLOG_INFO.Format(
+        "DECAY STATISTICS: decayed: max {} mean {} variance {} runs {} active max {} "
+        "mean "
+        "{} variance {} runs {}\n" )
+        << stateManager.decay_statistics.decayed.max()
+        << stateManager.decay_statistics.decayed.mean()
+        << stateManager.decay_statistics.decayed.variance()
+        << stateManager.decay_statistics.decayed.count()
+        << stateManager.decay_statistics.active_decay.max()
+        << stateManager.decay_statistics.active_decay.mean()
+        << stateManager.decay_statistics.active_decay.variance()
+        << stateManager.decay_statistics.active_decay.count();
+  };
   // need to collect possible items
   // since script calls could add/remove in container
   for ( auto& v : indexByTime )
@@ -102,7 +113,14 @@ void WorldDecay::decayTask()
     decayitems.push_back( v );
   }
   if ( decayitems.empty() )  // early out
+  {
+    if ( statistics )
+    {
+      stateManager.decay_statistics.decayed.update( 0 );
+      decayStats();
+    }
     return;
+  }
 
   std::vector<Items::Item*> destroyeditems;
   std::vector<Items::Item*> delayeditems;
@@ -119,6 +137,27 @@ void WorldDecay::decayTask()
       delayeditems.push_back( item );
       continue;
     }
+    // testing code TODO remove
+    if ( item->owner() != nullptr )
+    {
+      POLLOG_INFO << "DECAY IS NOT TOPLEVEL: " << item->serial << " " << item->name() << "\n";
+      continue;
+    }
+    if ( !item->movable() && item->objtype_ != UOBJ_CORPSE )
+    {
+      POLLOG_INFO << "DECAY IS NOT MOVABLE: " << item->serial << " " << item->name() << "\n";
+      continue;
+    }
+    if ( !item->itemdesc().decays_on_multis )
+    {
+      auto multi = item->realm->find_supporting_multi( item->x, item->y, item->z );
+      if ( multi != nullptr )
+      {
+        POLLOG_INFO << "DECAY IS ON MULTI: " << item->serial << " " << item->name() << "\n";
+        continue;
+      }
+    }
+
     if ( gamestate.system_hooks.can_decay )
     {
       if ( !gamestate.system_hooks.can_decay->call( item->make_ref() ) )
@@ -147,6 +186,8 @@ void WorldDecay::decayTask()
   }
 
   auto& indexByObj = decay_cont.get<IndexByObject>();
+  if ( statistics )
+    stateManager.decay_statistics.decayed.update( destroyeditems.size() );
   for ( const auto& item : destroyeditems )
   {
     indexByObj.erase( item->serial_ext );
@@ -157,8 +198,36 @@ void WorldDecay::decayTask()
     if ( getDecayTime( item ) <= now )   // check if script has removed it or changed time
       addObject( item, now + 10 * 60 );  // delay by 10minutes like old decay system would behave
   }
+  if ( statistics )
+    decayStats();
 }
 
+void WorldDecay::initialize()
+{
+  POLLOG_INFO << "Initializing decay ";
+  Tools::Timer<> timer;
+  for ( auto& realm : gamestate.Realms )
+  {
+    WorldIterator<ItemFilter>::InBox(
+        0, 0, realm->width(), realm->height(), realm, [&]( Items::Item* item ) {
+          if ( item->can_add_to_decay_task() )
+          {
+            // special handling during loading, use the stored time and remove it
+            if ( item->has_decay_time_loaded() )
+            {
+              Core::gamestate.world_decay.addObject( item, item->decay_time_loaded() );
+              item->decay_time_loaded( 0 );
+            }
+            else
+              Core::gamestate.world_decay.addObject( item, item->itemdesc().decay_time * 60 );
+          }
+        } );
+    POLLOG_INFO << ".";
+  }
+  timer.stop();
+  auto& indexByTime = decay_cont.get<IndexByTime>();
+  POLLOG_INFO << " " << indexByTime.size() << " elements in " << timer.ellapsed() << " ms.\n";
+}
 ///
 /// [1] Item Decay Criteria
 ///     An Item is allowed to decay if ALL of the following are true:

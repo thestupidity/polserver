@@ -124,8 +124,9 @@ public:
   bool has_decay_task() const;
   bool has_disabled_decay_task() const;
   void disable_decay_task( bool val );
-  bool can_add_to_decay_task() const;
+  bool can_add_to_decay_task( bool multi_check = true ) const;
   void set_decay_task( bool val );  // internal method should only be used in WorldDecay class
+  DYN_PROPERTY( decay_time_loaded, u32, Core::PROP_DECAY_TIME_LOAD, 0 );  // world loading specific
 
   bool setlayer( unsigned char layer );
   virtual bool setgraphic( u16 newobjtype ) override;

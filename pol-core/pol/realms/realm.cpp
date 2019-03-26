@@ -17,6 +17,7 @@
 #include "../../plib/staticserver.h"
 #include "../../plib/systemstate.h"
 #include "../decay.h"
+#include "../globals/state.h"
 #include "../globals/uvars.h"
 #include "../item/item.h"
 #include "../item/itemdesc.h"
@@ -282,8 +283,11 @@ void Realm::remove_mobile( const Mobile::Character& chr, WorldChangeReason reaso
 void Realm::add_toplevel_item( Items::Item* item )
 {
   ++_toplevel_item_count;
-  if ( Plib::systemstate.config.decaytask && item->can_add_to_decay_task() )
+  if ( !Core::stateManager.gflag_in_system_load && Plib::systemstate.config.decaytask &&
+       item->can_add_to_decay_task() )
+  {
     Core::gamestate.world_decay.addObject( item, item->itemdesc().decay_time * 60 );
+  }
 }
 
 void Realm::remove_toplevel_item( Items::Item* item )

@@ -32,5 +32,5 @@ size_t StateManager::estimateSize() const
 {
   return sizeof( StateManager );
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol

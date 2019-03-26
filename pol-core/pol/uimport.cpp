@@ -685,6 +685,7 @@ int read_data()
   }
 
   stateManager.gflag_in_system_load = false;
+  gamestate.world_decay.initialize();
   return 0;
 }
 

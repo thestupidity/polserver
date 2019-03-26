@@ -143,6 +143,7 @@ enum DynPropTypes : u8
   PROP_GOTTEN_ITEM = 57,            // Character
   PROP_PROCESS = 58,                // Item
   PROP_HOUSE = 59,                  // House
+  PROP_DECAY_TIME_LOAD = 60,        // Item
 
   PROP_FLAG_SIZE  // used for bitset size
 };

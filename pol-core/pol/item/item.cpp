@@ -26,6 +26,7 @@
 #include "../../plib/systemstate.h"
 #include "../containr.h"
 #include "../gameclck.h"
+#include "../globals/state.h"
 #include "../globals/uvars.h"
 #include "../mobile/charactr.h"
 #include "../module/uomod.h"
@@ -403,7 +404,13 @@ void Item::printProperties( Clib::StreamWriter& sw ) const
   if ( unequip_script_ != itemdesc().unequip_script )
     sw() << "\tUnequipScript\t" << unequip_script_.get() << pf_endl;
 
-  if ( decayat_gameclock_ != 0 )
+  if ( Plib::systemstate.config.decaytask )
+  {
+    auto dtime = Core::gamestate.world_decay.getDecayTime( this );
+    if ( dtime != 0 )
+      sw() << "\tDecayAt\t" << dtime << pf_endl;
+  }
+  else if ( decayat_gameclock_ != 0 )
     sw() << "\tDecayAt\t" << decayat_gameclock_ << pf_endl;
 
   if ( has_sellprice_() )
@@ -453,7 +460,18 @@ void Item::readProperties( Clib::ConfigElem& elem )
   equip_script_ = elem.remove_string( "EQUIPSCRIPT", equip_script_.get().c_str() );
   unequip_script_ = elem.remove_string( "UNEQUIPSCRIPT", unequip_script_.get().c_str() );
 
-  decayat_gameclock_ = elem.remove_ulong( "DECAYAT", 0 );
+  auto dtime = elem.remove_ulong( "DECAYAT", 0 );
+  if ( Plib::systemstate.config.decaytask )
+  {
+    //TODO non world loading handling
+    if ( dtime > 0 )
+      decay_time_loaded( dtime );  // only store time here, WorldDecay::initialize handles it
+    else
+      disable_decay_task( true );
+  }
+  else
+    decayat_gameclock_ = dtime;
+
   sellprice_( elem.remove_ulong( "SELLPRICE", SELLPRICE_DEFAULT ) );
   buyprice_( elem.remove_ulong( "BUYPRICE", BUYPRICE_DEFAULT ) );
 
@@ -882,7 +900,8 @@ void Item::on_color_changed()
 void Item::on_movable_changed()
 {
   update_item_to_inrange( this );
-  if ( Plib::systemstate.config.decaytask && objtype_ != UOBJ_CORPSE )
+  if ( !Core::stateManager.gflag_in_system_load && Plib::systemstate.config.decaytask &&
+       objtype_ != UOBJ_CORPSE )
   {
     if ( movable() && !has_decay_task() )
     {
@@ -1023,16 +1042,17 @@ bool Item::has_disabled_decay_task() const
 void Item::disable_decay_task( bool val )
 {
   flags_.change( Core::OBJ_FLAGS::DISABLE_DECAY_TASK, val );
-  if ( has_decay_task() )
+  if ( val && has_decay_task() )
     Core::gamestate.world_decay.removeObject( this );
   set_dirty();
 }
 
-bool Item::can_add_to_decay_task() const
+bool Item::can_add_to_decay_task( bool multi_check ) const
 {
-  if ( orphan() || has_disabled_decay_task() || ( !movable() && objtype_ != UOBJ_CORPSE ) )
+  if ( orphan() || owner() != nullptr || has_disabled_decay_task() ||
+       ( !movable() && objtype_ != UOBJ_CORPSE ) )
     return false;
-  if ( !itemdesc().decays_on_multis )
+  if ( multi_check && !itemdesc().decays_on_multis )
   {
     if ( realm->find_supporting_multi( x, y, z ) != nullptr )
       return false;

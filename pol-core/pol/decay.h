@@ -6,7 +6,7 @@
 #ifndef __DECAY_H
 #define __DECAY_H
 
-#include "polclock.h"
+#include "gameclck.h"
 #include "reftypes.h"
 #include "uobject.h"
 
@@ -31,16 +31,19 @@ class WorldDecay
 {
 public:
   WorldDecay();
-  void addObject( Items::Item* item, poltime_t decaytime );
+  void initialize();
+
+  void addObject( Items::Item* item, gameclock_t decaytime );
   void removeObject( Items::Item* item );
-  poltime_t getDecayTime( Items::Item* item ) const;
+  gameclock_t getDecayTime( Items::Item* item ) const;
+  gameclock_t getDecayTime( const Items::Item* item ) const;
   void decayTask();
 
 private:
   struct DecayItem
   {
-    DecayItem( poltime_t decaytime, ItemRef itemref );
-    poltime_t time;
+    DecayItem( gameclock_t decaytime, ItemRef itemref );
+    gameclock_t time;
     ItemRef obj;
   };
   struct IndexByTime
@@ -61,7 +64,7 @@ private:
                                                        SerialFromDecayItem>,
                      boost::multi_index::ordered_non_unique<
                          boost::multi_index::tag<IndexByTime>,
-                         boost::multi_index::member<DecayItem, poltime_t, &DecayItem::time>>>>;
+                         boost::multi_index::member<DecayItem, gameclock_t, &DecayItem::time>>>>;
 
   DecayContainer decay_cont;
 };
