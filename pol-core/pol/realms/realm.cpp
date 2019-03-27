@@ -17,6 +17,7 @@
 #include "../../plib/staticserver.h"
 #include "../../plib/systemstate.h"
 #include "../decay.h"
+#include "../gameclck.h"
 #include "../globals/state.h"
 #include "../globals/uvars.h"
 #include "../item/item.h"
@@ -286,7 +287,15 @@ void Realm::add_toplevel_item( Items::Item* item )
   if ( !Core::stateManager.gflag_in_system_load && Plib::systemstate.config.decaytask &&
        item->can_add_to_decay_task() )
   {
-    Core::gamestate.world_decay.addObject( item, item->itemdesc().decay_time * 60 );
+    // TODO see WorldDecay::initialize duplicate code
+    if ( item->has_reldecay_time_loaded() )  // use stored reltime
+    {
+      Core::gamestate.world_decay.addObject(
+          item, item->reldecay_time_loaded() + Core::read_gameclock() );
+      item->reldecay_time_loaded( 0 );
+    }
+    else
+      Core::gamestate.world_decay.addObject( item, item->itemdesc().decay_time * 60 );
   }
 }
 

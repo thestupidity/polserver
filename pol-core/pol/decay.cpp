@@ -205,6 +205,7 @@ void WorldDecay::decayTask()
 void WorldDecay::initialize()
 {
   POLLOG_INFO << "Initializing decay ";
+  auto now = read_gameclock();
   Tools::Timer<> timer;
   for ( auto& realm : gamestate.Realms )
   {
@@ -212,14 +213,19 @@ void WorldDecay::initialize()
         0, 0, realm->width(), realm->height(), realm, [&]( Items::Item* item ) {
           if ( item->can_add_to_decay_task() )
           {
-            // special handling during loading, use the stored time and remove it
-            if ( item->has_decay_time_loaded() )
+            if ( item->has_reldecay_time_loaded() )  // use stored reltime
             {
-              Core::gamestate.world_decay.addObject( item, item->decay_time_loaded() );
-              item->decay_time_loaded( 0 );
+              Core::gamestate.world_decay.addObject( item, item->reldecay_time_loaded() + now );
+              item->reldecay_time_loaded( 0 );
             }
             else
               Core::gamestate.world_decay.addObject( item, item->itemdesc().decay_time * 60 );
+          }
+          else
+          {
+            // no item should have this flag directly after loading, see uimport for container
+            // items
+            item->reldecay_time_loaded( 0 );
           }
         } );
     POLLOG_INFO << ".";
@@ -228,6 +234,7 @@ void WorldDecay::initialize()
   auto& indexByTime = decay_cont.get<IndexByTime>();
   POLLOG_INFO << " " << indexByTime.size() << " elements in " << timer.ellapsed() << " ms.\n";
 }
+
 ///
 /// [1] Item Decay Criteria
 ///     An Item is allowed to decay if ALL of the following are true:

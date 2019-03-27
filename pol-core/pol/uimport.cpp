@@ -243,6 +243,10 @@ void read_global_item( Clib::ConfigElem& elem, int /*sysfind_flags*/ )
   }
   else
   {
+    // after loading no item should have this prop
+    // non toplevel items will not be handled by WorldDecay::initialize
+    if ( item->has_reldecay_time_loaded() )
+      item->reldecay_time_loaded( 0 );
     if ( IsCharacter( container_serial ) )  // it's equipped on a character
     {
       Mobile::Character* chr = system_find_mobile( container_serial );

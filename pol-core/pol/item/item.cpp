@@ -463,11 +463,19 @@ void Item::readProperties( Clib::ConfigElem& elem )
   auto dtime = elem.remove_ulong( "DECAYAT", 0 );
   if ( Plib::systemstate.config.decaytask )
   {
-    //TODO non world loading handling
     if ( dtime > 0 )
-      decay_time_loaded( dtime );  // only store time here, WorldDecay::initialize handles it
-    else
-      disable_decay_task( true );
+    {
+      // store relative time
+      // worldloading: WorldDecay::initialize handles add to decay (parent is unknown here)
+      // item creation: container also unknown and since its relative time, once its dropped on
+      // ground the time here defined is used
+      auto gmclock = Core::read_gameclock();
+      if ( dtime > gmclock )
+        reldecay_time_loaded( dtime - gmclock );
+      // else leftover or bug? use default time
+      else
+        disable_decay_task( true );
+    }
   }
   else
     decayat_gameclock_ = dtime;
@@ -753,8 +761,8 @@ bool Item::can_add_to_self( const Item& item, bool force_stacking )
         ( !inuse() ) && ( can_add_to_self( item.amount_, force_stacking ) ) );
   if ( res == true )
   {
-    // NOTE! this logic is copied in Item::has_only_default_cprops(), so make any necessary changes
-    // there too
+    // NOTE! this logic is copied in Item::has_only_default_cprops(), so make any necessary
+    // changes there too
     Core::PropertyList myprops( getprops() );  // make a copy :(
     myprops -= itemdesc().ignore_cprops;
     myprops -= Core::gamestate.Global_Ignore_CProps;
