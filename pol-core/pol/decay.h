@@ -23,9 +23,7 @@ class Item;
 }
 namespace Core
 {
-void decay_items();
-void decay_single_zone();
-
+void decay_single_thread( void* );
 
 class WorldDecay
 {

@@ -31,6 +31,7 @@
 #include "../../plib/systemstate.h"
 #include "../cmdlevel.h"
 #include "../core.h"
+#include "../decay.h"
 #include "../globals/settings.h"
 #include "../globals/uvars.h"
 #include "../item/item.h"
@@ -50,7 +51,7 @@ namespace Pol
 namespace Core
 {
 void reload_configuration();
-}
+}  // namespace Core
 namespace Module
 {
 class PackagePtrHolder

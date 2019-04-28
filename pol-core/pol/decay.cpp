@@ -309,37 +309,6 @@ void decay_worldzone( unsigned wx, unsigned wy, Realms::Realm* realm )
   }
 }
 
-
-// this is used in single-thread mode only
-void decay_items()
-{
-  static unsigned wx = ~0u;
-  static unsigned wy = 0;
-
-  Realms::Realm* realm;
-  for ( auto itr = gamestate.Realms.begin(); itr != gamestate.Realms.end(); ++itr )
-  {
-    realm = *itr;
-    if ( !--stateManager.cycles_until_decay_worldzone )
-    {
-      stateManager.cycles_until_decay_worldzone = stateManager.cycles_per_decay_worldzone;
-
-      unsigned gridwidth = realm->grid_width();
-      unsigned gridheight = realm->grid_height();
-
-      if ( ++wx >= gridwidth )
-      {
-        wx = 0;
-        if ( ++wy >= gridheight )
-        {
-          wy = 0;
-        }
-      }
-      decay_worldzone( wx, wy, realm );
-    }
-  }
-}
-
 bool should_switch_realm( size_t index, unsigned x, unsigned y, unsigned* gridx, unsigned* gridy )
 {
   (void)x;
