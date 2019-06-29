@@ -13,11 +13,11 @@
 #include <stddef.h>
 
 #include "../../bscript/berror.h"
-#include "../../bscript/bobject.h"
 #include "../../bscript/executor.h"
 #include "../../bscript/objmembers.h"
 #include "../../bscript/objmethods.h"
 #include "../../clib/rawtypes.h"
+#include "../../clib/stlutil.h"
 #include "../fnsearch.h"
 #include "../globals/uvars.h"
 #include "../guilds.h"
@@ -38,7 +38,7 @@ TmplExecutorModule<GuildExecutorModule>::FunctionTable
         {"FindGuild", &GuildExecutorModule::mf_FindGuild},
         {"DestroyGuild", &GuildExecutorModule::mf_DestroyGuild},
 };
-}
+}  // namespace Bscript
 namespace Module
 {
 using namespace Bscript;
@@ -261,10 +261,17 @@ BObjectRef EGuildRefObjImp::get_member( const char* membername )
     return BObjectRef( UninitObject::create() );
 }
 
-BObjectImp* EGuildRefObjImp::call_method_id( const int id, Executor& ex, bool /*forcebuiltin*/ )
+BObjectImp* EGuildRefObjImp::call_method_id( const int id, Executor& ex, bool forcebuiltin )
 {
   if ( obj_->_disbanded )
     return new BError( "Guild has disbanded" );
+  ObjMethod* mth = getObjMethod( id );
+  if ( mth->overridden && !forcebuiltin )
+  {
+    auto* result = Core::gamestate.system_hooks.call_script_method( mth->code, &ex, this );
+    if ( result )
+      return result;
+  }
 
   switch ( id )
   {
@@ -454,15 +461,16 @@ BObjectImp* EGuildRefObjImp::call_method( const char* methodname, Executor& ex )
 {
   if ( obj_->_disbanded )
     return new BError( "Guild has disbanded" );
-
-  ObjMethod* objmethod = getKnownObjMethod( methodname );
+  bool forcebuiltin{Executor::builtinMethodForced( methodname )};
+  Bscript::ObjMethod* objmethod = Bscript::getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
-    return this->call_method_id( objmethod->id, ex );
-  else
-  {
-    bool changed = false;
-    return CallPropertyListMethod( obj_->_proplist, methodname, ex, changed );
-  }
+    return call_method_id( objmethod->id, ex, forcebuiltin );
+  auto* res = Core::gamestate.system_hooks.call_script_method( methodname, &ex, this );
+  if ( res )
+    return res;
+
+  bool changed = false;
+  return CallPropertyListMethod( obj_->_proplist, methodname, ex, changed );
 }
 
 
@@ -535,5 +543,5 @@ BObjectImp* GuildExecutorModule::mf_FindGuild()
     return new BError( "Invalid parameter type" );
   }
 }
-}
-}
+}  // namespace Module
+}  // namespace Pol

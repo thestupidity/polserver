@@ -4,15 +4,14 @@
 #include "pol_global_config.h"
 
 #include <array>
-#include <boost/noncopyable.hpp>
 #include <memory>
 #include <vector>
 
 #include "../network/bannedips.h"
 #include "../network/iostats.h"
 #include "../network/msghandl.h"
+#include "../network/sockio.h"
 #include "../polstats.h"
-#include "../sockio.h"
 #include "../uoclient.h"
 
 namespace Pol
@@ -25,7 +24,7 @@ class ClientTransmit;
 class PacketHookData;
 class PacketsSingleton;
 class UOClientInterface;
-}
+}  // namespace Network
 namespace threadhelp
 {
 class DynTaskThreadPool;
@@ -39,15 +38,18 @@ class ServerDescription;
 typedef std::vector<Network::Client*> Clients;
 typedef std::vector<ServerDescription*> Servers;
 
-class NetworkManager : boost::noncopyable
+class NetworkManager
 {
 public:
   NetworkManager();
   ~NetworkManager();
+  NetworkManager( const NetworkManager& ) = delete;
+  NetworkManager& operator=( const NetworkManager& ) = delete;
 
   void deinialize();
   void kill_disconnected_clients();
 
+  size_t getNumberOfLoginClients() const;
   struct Memory;
 
   Memory estimateSize() const;
@@ -99,10 +101,7 @@ public:
   std::unique_ptr<threadhelp::DynTaskThreadPool> auxthreadpool;
 
   std::vector<Network::IPRule> banned_ips;
-
-  Network::PolSocket polsocket;
-
-
+   
   struct Memory
   {
     size_t client_size;
@@ -114,6 +113,6 @@ private:
 };
 
 extern NetworkManager networkManager;
-}
-}
+}  // namespace Core
+}  // namespace Pol
 #endif

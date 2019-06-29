@@ -35,7 +35,7 @@
 #include "../clib/fileutil.h"
 #include "../clib/logfacility.h"
 #include "globals/settings.h"
-#include "pktdef.h"
+#include "network/pktdef.h"
 
 namespace Pol
 {
@@ -65,7 +65,7 @@ void ServSpecOpt::read_servspecopt()
   settingsManager.ssopt.default_doubleclick_range =
       elem.remove_ushort( "DefaultDoubleclickRange", 2 );
   settingsManager.ssopt.default_accessible_range =
-    elem.remove_int( "DefaultAccessibleRange", settingsManager.ssopt.default_doubleclick_range);
+      elem.remove_int( "DefaultAccessibleRange", settingsManager.ssopt.default_doubleclick_range );
   settingsManager.ssopt.default_light_level = elem.remove_ushort( "DefaultLightLevel", 10 );
   settingsManager.ssopt.event_visibility_core_checks =
       elem.remove_bool( "EventVisibilityCoreChecks", false );
@@ -95,6 +95,8 @@ void ServSpecOpt::read_servspecopt()
   settingsManager.ssopt.use_edit_server = elem.remove_bool( "EditServer", false );
   settingsManager.ssopt.carrying_capacity_mod = elem.remove_double( "CarryingCapacityMod", 1.0 );
   settingsManager.ssopt.core_sends_caps = elem.remove_bool( "CoreSendsCaps", false );
+  settingsManager.ssopt.core_ignores_defence_caps =
+      elem.remove_bool( "CoreIgnoresDefenceCaps", false );
   settingsManager.ssopt.send_stat_locks = elem.remove_bool( "SendStatLocks", false );
   settingsManager.ssopt.speech_range = elem.remove_ushort( "SpeechRange", 12 );
   settingsManager.ssopt.whisper_range = elem.remove_ushort( "WhisperRange", 2 );
@@ -207,5 +209,5 @@ void ServSpecOpt::ssopt_parse_totalstats( Clib::ConfigElem& elem )
       cout << "* Stats-at-creation entry: " << *itr << endl;
       */
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol

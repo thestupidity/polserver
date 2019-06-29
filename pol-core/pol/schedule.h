@@ -8,7 +8,6 @@
 #ifndef __SCHEDULE_H
 #define __SCHEDULE_H
 
-#include <ctime>
 #include <functional>
 
 #include "polclock.h"
@@ -39,13 +38,12 @@ class ScheduledTask
 {
 public:
   explicit ScheduledTask( polclock_t next_run_clock );
-  virtual ~ScheduledTask();
+  virtual ~ScheduledTask() = default;
 
   bool ready( polclock_t now );
   bool late( polclock_t now );
-  polticks_t ticks_late( polclock_t now );
+  polclock_t ticks_late( polclock_t now );
 
-  polticks_t ticks_left( polclock_t now ) const;
   polclock_t clocksleft( polclock_t now );
   polclock_t next_run_clock() const;
   virtual void execute( polclock_t now ) = 0;
@@ -59,7 +57,6 @@ protected:
   friend class SchComparer;
   friend void check_scheduled_tasks( polclock_t* clocksleft, bool* pactivity );
   friend void check_scheduled_tasks2( void );
-  friend polclock_t calc_scheduler_clocksleft( polclock_t now );
 };
 
 inline polclock_t ScheduledTask::next_run_clock() const
@@ -69,7 +66,6 @@ inline polclock_t ScheduledTask::next_run_clock() const
 
 void check_scheduled_tasks( polclock_t* clocksleft, bool* pactivity );
 void check_scheduled_tasks2( void );
-polclock_t calc_scheduler_clocksleft( polclock_t now );
 
 class PeriodicTask final : public ScheduledTask
 {
@@ -131,6 +127,6 @@ void OneShotTaskInst<T>::on_run()
 {
   ( *f_ )( data_ );
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol
 #endif

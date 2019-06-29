@@ -44,6 +44,7 @@
 #include "../../clib/refptr.h"
 #include "../../clib/strset.h"
 #include "../../clib/weakptr.h"
+#include "../../plib/uconst.h"
 #include "../action.h"
 #include "../baseobject.h"
 #include "../dynproperties.h"
@@ -51,7 +52,6 @@
 #include "../polclock.h"
 #include "../reftypes.h"
 #include "../skillid.h"
-#include "../uconst.h"
 #include "../uobject.h"
 #include "../utype.h"
 #include "attribute.h"
@@ -84,7 +84,7 @@ namespace Bscript
 class BObjectImp;
 class EScriptProgram;
 class ObjArray;
-}
+}  // namespace Bscript
 namespace Clib
 {
 class ConfigElem;
@@ -102,9 +102,10 @@ namespace Items
 class Item;
 class UArmor;
 class UWeapon;
-}
+}  // namespace Items
 namespace Core
 {
+class ExportScript;
 class Guild;
 class Menu;
 class MenuItem;
@@ -129,7 +130,7 @@ void createchar2( Accounts::Account* acct, unsigned index );
 void undo_get_item( Mobile::Character* chr, Items::Item* item );
 void write_characters( SaveContext& sc );
 void write_npcs( SaveContext& sc );
-}
+}  // namespace Core
 namespace Module
 {
 class UOExecutorModule;
@@ -143,37 +144,20 @@ class PrivUpdater;
 class AttributeValue
 {
 public:
-  AttributeValue() : _base( 0 ), _temp( 0 ), _intrinsic( 0 ), _lockstate( 0 ), _cap( 0 ) {}
-  int effective() const
-  {
-    int v = _base;
-    v += _temp;
-    v += _intrinsic;
-    return ( v > 0 ) ? ( v / 10 ) : 0;
-  }
-  int effective_tenths() const
-  {
-    int v = _base;
-    v += _temp;
-    v += _intrinsic;
-    return ( v > 0 ) ? v : 0;
-  }
+  AttributeValue();
+  int effective() const;
+  int effective_tenths() const;
+  int base() const;
+  void base( unsigned short base );
 
-  int base() const { return _base; }
-  void base( unsigned short base )
-  {
-    passert( base <= ATTRIBUTE_MAX_BASE );
-    _base = base;
-  }
-
-  int temp_mod() const { return _temp; }
-  void temp_mod( short temp ) { _temp = temp; }
-  int intrinsic_mod() const { return _intrinsic; }
-  void intrinsic_mod( short val ) { _intrinsic = val; }
-  unsigned char lock() const { return _lockstate; }
-  void lock( unsigned char lockstate ) { _lockstate = lockstate; }
-  unsigned short cap() const { return _cap; }
-  void cap( unsigned short cap ) { _cap = cap; }
+  int temp_mod() const;
+  void temp_mod( short temp );
+  int intrinsic_mod() const;
+  void intrinsic_mod( short val );
+  unsigned char lock() const;
+  void lock( unsigned char lockstate );
+  unsigned short cap() const;
+  void cap( unsigned short cap );
 
 private:
   unsigned short _base;
@@ -186,66 +170,24 @@ private:
 class VitalValue
 {
 public:
-  VitalValue() : _current( 0 ), _maximum( 0 ), _regenrate( 0 ) {}
+  VitalValue();
   // accessors:
-  int current() const { return _current; }
-  int current_ones() const { return _current / 100; }
-  int current_thousands() const
-  {
-    // use division to prevent overflow
-    return ( _current / 100 ) * 1000 / ( _maximum / 100 );
-  }
-  int maximum() const { return _maximum; }
-  int maximum_ones() const { return _maximum / 100; }
-  bool is_at_maximum() const { return ( _current >= _maximum ); }
-  int regenrate() const { return _regenrate; }
+  int current() const;
+  int current_ones() const;
+  int current_thousands() const;
+  int maximum() const;
+  int maximum_ones() const;
+  bool is_at_maximum() const;
+  int regenrate() const;
   // mutators:
 protected:
   friend class Character;
-  void current( int cur )
-  {
-    _current = cur;
-    if ( _current > _maximum )
-      current( _maximum );
-  }
-  void current_ones( int ones )
-  {
-    _current = ones * 100;
-    if ( _current > _maximum )
-      current( _maximum );
-  }
-  void maximum( int val )
-  {
-    _maximum = val;
-    if ( _current > _maximum )
-      current( _maximum );
-  }
-  void regenrate( int rate ) { _regenrate = rate; }
-  bool consume( unsigned int hamt )
-  {
-    if ( _current >= hamt )
-    {
-      _current -= hamt;
-      return true;
-    }
-    else
-    {
-      _current = 0;
-      return false;
-    }
-  }
-  void produce( unsigned int hamt )
-  {
-    unsigned newcur = _current + hamt;
-    if ( newcur > _maximum || newcur < _current )
-    {
-      _current = _maximum;
-    }
-    else
-    {
-      _current = newcur;
-    }
-  }
+  void current( int cur );
+  void current_ones( int ones );
+  void maximum( int val );
+  void regenrate( int rate );
+  bool consume( unsigned int hamt );
+  void produce( unsigned int hamt );
 
 private:
   unsigned int _current;  // 0 to 10000000 [0 to 100000.00]
@@ -367,12 +309,11 @@ public:
   virtual Bscript::BObjectImp* set_script_member( const char* membername,
                                                   const std::string& value ) override;
   virtual Bscript::BObjectImp* set_script_member( const char* membername, int value ) override;
-  virtual Bscript::BObjectImp* set_script_member_id( const int id, const std::string& value )
-      override;  // id test
+  virtual Bscript::BObjectImp* set_script_member_id(
+      const int id, const std::string& value ) override;  // id test
   virtual Bscript::BObjectImp* set_script_member_id( const int id,
                                                      int value ) override;  // id test
-  virtual Bscript::BObjectImp* set_script_member_id_double( const int id,
-                                                            double value ) override;
+  virtual Bscript::BObjectImp* set_script_member_id_double( const int id, double value ) override;
   virtual Bscript::BObjectImp* script_method( const char* methodname,
                                               Bscript::Executor& ex ) override;
   virtual Bscript::BObjectImp* script_method_id( const int id, Bscript::Executor& ex ) override;
@@ -380,6 +321,8 @@ public:
                                                      Bscript::Executor& ex ) override;
   virtual bool script_isa( unsigned isatype ) const override;
   virtual const char* target_tag() const override;
+  virtual bool get_method_hook( const char* methodname, Bscript::Executor* ex,
+                                Core::ExportScript** hook, unsigned int* PC ) const override;
 
 protected:
   virtual const char* classname() const override;
@@ -456,12 +399,12 @@ public:
   // MOVEMENT
 public:
   bool on_mount() const;
-  static Core::MOVEMODE decode_movemode( const std::string& str );
-  static std::string encode_movemode( Core::MOVEMODE movemode );
+  static Plib::MOVEMODE decode_movemode( const std::string& str );
+  static std::string encode_movemode( Plib::MOVEMODE movemode );
   // if a move were made, what would the new position be?
-  void getpos_ifmove( Core::UFACING i_facing, unsigned short* px, unsigned short* py );
-  bool can_face( Core::UFACING i_facing );
-  bool face( Core::UFACING i_facing, int flags = 0 );
+  void getpos_ifmove( Plib::UFACING i_facing, unsigned short* px, unsigned short* py );
+  bool can_face( Plib::UFACING i_facing );
+  bool face( Plib::UFACING i_facing, int flags = 0 );
   bool move( unsigned char dir );
   bool CustomHousingMove( unsigned char i_dir );
   void tellmove( void );
@@ -510,7 +453,7 @@ public:
   void check_attack_after_move();
   void attack( Character* opponent );
   void send_highlight() const;
-  bool manual_set_swing_timer( int time );
+  bool manual_set_swing_timer( Core::polclock_t time );
 
   const CharacterSet& hostiles() const;
   void run_hit_script( Character* defender, double damage );
@@ -559,10 +502,23 @@ public:
   void calc_single_vital( const Core::Vital* pVital );
   void calc_single_attribute( const Attribute* pAttr );
   void set_vitals_to_maximum();  // throw();
+  enum class VitalDepletedReason
+  {
+    // used in depleted hook as reason parameter
+    REGENERATE = 0,
+    DAMAGE,
+    MOVEMENT,
+    DEATH,
+    RESURRECT,
+    SCRIPT,
+  };
   void produce( const Core::Vital* pVital, VitalValue& vv, unsigned int amt );
-  bool consume( const Core::Vital* pVital, VitalValue& vv, unsigned int amt );
-  void set_current_ones( const Core::Vital* pVital, VitalValue& vv, unsigned int ones );
-  void set_current( const Core::Vital* pVital, VitalValue& vv, unsigned int ones );
+  bool consume( const Core::Vital* pVital, VitalValue& vv, unsigned int amt,
+                VitalDepletedReason reason );
+  void set_current_ones( const Core::Vital* pVital, VitalValue& vv, unsigned int ones,
+                         VitalDepletedReason reason );
+  void set_current( const Core::Vital* pVital, VitalValue& vv, unsigned int ones,
+                    VitalDepletedReason reason );
 
   // REPUTATION
 public:
@@ -807,7 +763,7 @@ public:
     OTHER = 0,
     MULTIMOVE = 1
   } move_reason;
-  Core::MOVEMODE movemode;
+  Plib::MOVEMODE movemode;
   DYN_PROPERTY( lightoverride, int, Core::PROP_LIGHTOVERRIDE, -1 );
   DYN_PROPERTY( lightoverride_until, Core::gameclock_t, Core::PROP_LIGHTOVERRIDE_UNTIL, 0 );
 
@@ -821,7 +777,7 @@ protected:
   u16 ar_;
   DYN_PROPERTY( ar_mod, s16, Core::PROP_AR_MOD, 0 );
   DYN_PROPERTY( delay_mod, s16, Core::PROP_DELAY_MOD, 0 );
-  DYN_PROPERTY( hitchance_mod, s16, Core::PROP_HITCHANCE_MOD, 0 );
+  DYN_PROPERTY( hitchance_mod, s16, Core::PROP_HIT_CHANCE_MOD, 0 );
   DYN_PROPERTY( evasionchance_mod, s16, Core::PROP_EVASIONCHANCE_MOD, 0 );
 
   Character* opponent_;
@@ -878,7 +834,6 @@ public:
 
   DYN_PROPERTY( skillstatcap, Core::SkillStatCap, Core::PROP_STATCAP_SKILLCAP,
                 Core::SkillStatCap::DEFAULT );
-  DYN_PROPERTY( luck, s16, Core::PROP_EXT_STATBAR_LUCK, 0 );
   DYN_PROPERTY( followers, Core::ExtStatBarFollowers, Core::PROP_EXT_STATBAR_FOLLOWERS,
                 Core::ExtStatBarFollowers::DEFAULT );
   DYN_PROPERTY( tithing, s32, Core::PROP_EXT_STATBAR_TITHING, 0 );
@@ -914,8 +869,8 @@ public:
   u32 registered_house;
   u16 truecolor;
   u32 trueobjtype;
-  Core::UGENDER gender;
-  Core::URACE race;
+  Plib::UGENDER gender;
+  Plib::URACE race;
   u32 last_corpse;
 
   DYN_PROPERTY( dblclick_wait, u32, Core::PROP_DOUBLECLICK_WAIT, 0 );
@@ -1099,6 +1054,6 @@ inline void NpcPropagateEnteredArea( Character* chr, Character* whoentered )
     chr->inform_enteredarea( whoentered );
   }
 }
-}
-}
+}  // namespace Mobile
+}  // namespace Pol
 #endif

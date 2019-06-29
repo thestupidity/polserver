@@ -31,6 +31,7 @@
 #include "../../plib/systemstate.h"
 #include "../cmdlevel.h"
 #include "../core.h"
+#include "../decay.h"
 #include "../globals/settings.h"
 #include "../globals/uvars.h"
 #include "../item/item.h"
@@ -49,9 +50,8 @@ namespace Pol
 {
 namespace Core
 {
-void decay_thread_shadow( void* );
 void reload_configuration();
-}
+}  // namespace Core
 namespace Module
 {
 class PackagePtrHolder
@@ -87,7 +87,7 @@ PackageObjImp::PackageObjImp( const PackagePtrHolder& other )
     : PackageObjImpBase( &packageobjimp_type, other )
 {
 }
-}
+}  // namespace Module
 namespace Bscript
 {
 using namespace Module;
@@ -113,7 +113,7 @@ TmplExecutorModule<PolSystemExecutorModule>::FunctionTable
         {"MD5Encrypt", &PolSystemExecutorModule::mf_MD5Encrypt},
         {"LogCPropProfile", &PolSystemExecutorModule::mf_LogCPropProfile},
 };
-}
+}  // namespace Bscript
 namespace Module
 {
 using namespace Bscript;
@@ -292,7 +292,7 @@ BObjectImp* PolSystemExecutorModule::mf_ReloadConfiguration()
 
 BObjectImp* PolSystemExecutorModule::mf_ReadMillisecondClock()
 {
-  return new BLong( Core::polticks_t_to_ms( Core::polclock() ) );
+  return new Double( Core::polclock_t_to_ms( Core::polclock() ) );
 }
 
 BObjectImp* PolSystemExecutorModule::mf_ListenPoints()
@@ -519,5 +519,5 @@ BObjectImp* PolSystemExecutorModule::mf_LogCPropProfile()
   ofs.close();
   return new BLong( 1 );
 }
-}
-}
+}  // namespace Module
+}  // namespace Pol

@@ -2,7 +2,7 @@
 <ESCRIPT>
 	<header>
 		<topic>Latest Core Changes</topic>
-		<datemodified>10-07-2018</datemodified>
+		<datemodified>06-18-2019</datemodified>
 	</header>
 	<version name="POL100">
 	<entry>
@@ -23,6 +23,136 @@ Item 0x1F01C<br/>
 			<change type="Added">boatRef.pilot([charRef]) method, to set or clear the pilot</change>
 
 
+		</entry>
+		<entry>
+			<date>06-18-2018</date>
+			<author>DevGIB:</author>
+			<change type="Changed">Fixed SendQuestArrow() function to use arrow id's rather than an actual object reference. This allows for multiple arrows to be sent to the client and cancelled individually by storing them in a cprop to be recalled later.<br/>
+When sending SendQuestArrow() the function will return the arrows id for further processing.</change>
+		</entry>
+		<entry>
+			<date>06-17-2018</date>
+			<author>DevGIB:</author>
+			<change type="Changed">Fixed default for OS::Start_Skill_Script on script_name attribute to be string like required.</change>
+		</entry>
+		<entry>
+			<date>06-17-2018</date>
+			<author>DevGIB:</author>
+			<change type="Added">Support for LowerReagentCost, SpellDamageIncrease, FasterCasting, FasterCastRecovery, DefenceIncrease, DefenceIncreaseCap, LowerManaCost, Hitchance,<br/>
+Luck, FireResistCap, ColdResistCap, EnergyResistCap, PhysicalResistCap, and PoisonResistCap and their subsequent mods to UObject as dynaprops.</change>
+			<change type="Changed">Elevated Luck to UObject and added related LuckMod.</change>
+			<change type="Added">Support for new prop changes to the status bar packet.</change>
+			<change type="Added">Resistances will now be limited to caps by core, unless caps aren't set or are 0.</change>
+			<change type="Added">CoreIgnoresDefenceCaps to servspecopt.cfg which defaults to 0. If set to 1 core will not calculate resistances and defence increase limits set on the mobile.</change>
+		</entry>
+		<entry>
+			<date>04-26-2019</date>
+			<author>Nando:</author>
+			<change type="Changed">Improved connection handling. Linux won't be limited to 1024 clients anymore, recent Windows shouldn't be affected besides some slight performance gain.</change>
+			<change type="Note">POL now requires at least Windows Vista / Server 2008. Let us know if Windows XP was important to you.</change>
+			<change type="Removed">pol.cfg option &quot;ListenPort&quot;. It was deprecated since 2012 (and likely didn't work). You should use a Listener in uoclient.cfg.</change>
+			<change type="Removed">pol.cfg option &quot;Multithread&quot;. It was deprecated since 2016 and unstable. Also removed the method OS::System_RPM(), which was only useful for singlethreaded POL.</change>
+		</entry>
+		<entry>
+			<date>04-26-2019</date>
+			<author>Turley:</author>
+			<change type="Added">pol.cfg setting &quot;LoginServerTimeout&quot;. Defines a timeout for new connections to the loginserver.<br/>
+Defaults to 10 minutes, should give enough time to select a character.</change>
+		</entry>
+		<entry>
+			<date>03-19-2019</date>
+			<author>Kevin:</author>
+			<change type="Changed">attributes::GetAttribute now accepts an optional parameter to specify the precision of the attribute<br/>
+value returned. Use ATTRIBUTE_PRECISION_NORMAL (default) to use the existing precision, or<br/>
+ATTRIBUTE_PRECISION_TENTHS to get the value in tenths.<br/>
+Since this is a change to the module function's number of arguments, you MUST recompile your scripts.</change>
+		</entry>
+		<entry>
+			<date>03-08-2019</date>
+			<author>Yukiko:</author>
+			<change type="Changed">pol.cfg settings HideWarningGump and HideWarningItem to ShowWarningGump and ShowWarningItem.<br/>
+This positive logic is consistent with all other console output settings.<br/>
+Default setting is one (1). The output be displayed by default. Set to zero (0) to suppress.</change>
+		</entry>
+		<entry>
+			<date>02-18-2019</date>
+			<author>Skinny:</author>
+			<change type="Added">pol.cfg HideWarningGump and HideWarningItem.<br/>
+Many players macros generate warnings messages on the console, causing flooding, especially if you have lots of players online.<br/>
+You can enable setting HideWarningGump=1 and HideWarningItem=1 in the pol.cfg. Default value is 0.</change>
+		</entry>
+		<entry>
+			<date>02-02-2019</date>
+			<author>Yukiko:</author>
+			<change type="Added">uoconvert.exe will now surface the AnimID for equippables to tiles.cfg. This can be used to look-up the gump pic for wearables that are displayed on the paper doll. Add this number to 50000 for male gumpart or 60000 for female gump art. The resulting number will be the gump art that is displayed in the paper doll.</change>
+		</entry>
+		<entry>
+			<date>01-21-2019</date>
+			<author>Nando:</author>
+			<change type="Changed">account.split() will now return an AccountRef to the new account instead of &quot;true&quot;.</change>
+		</entry>
+		<entry>
+			<date>01-17-2019</date>
+			<author>Kevin:</author>
+			<change type="Fixed">Vendor purchases could overflow</change>
+		</entry>
+		<entry>
+			<date>01-01-2019</date>
+			<author>Turley:</author>
+			<change type="Changed">DepletedFunction hook now receives a second parameter: reason<br/>
+The values are:<br/>
+0: Regenerate, 1: Damage, 2: Movement, 3: Death, 4: Resurrect, 5: Script</change>
+		</entry>
+		<entry>
+			<date>12-30-2018</date>
+			<author>Turley:</author>
+			<change type="Added">vitals.cfg optional entry DepletedFunction<br/>
+gets called once the vital reaches 0.<br/>
+Given Argument is character reference<br/>
+Like the other entries the syntax is ScriptName:ExportedFunctionName</change>
+		</entry>
+		<entry>
+			<date>12-21-2018</date>
+			<author>Turley:</author>
+			<change type="Fixed">CPU usage of UseSingleThreadLogin</change>
+		</entry>
+		<entry>
+			<date>11-27-2018</date>
+			<author>Nando:</author>
+			<change type="Added">Top-level items can now receive ENTEREDAREA and LEFTAREA events.</change>
+		</entry>
+		<entry>
+			<date>11-25-2018</date>
+			<author>Yukiko:</author>
+			<change type="Changed">The order of a couple of functions listed in uo.em. They were out of alphabetical order.</change>
+			<change type="Added">To uo.em ListItemsInBoxOfObjType( objtype, x1, y1, z1, x2, y2, z2, realm := _DEFAULT_REALM)<br/>
+The function returns an array of all items in the bounds of the coordinates matching the ObjType specified.</change>
+			<change type="Added">To uo.em ListObjectsInBoxOfClass( POL_Class, x1, y1, z1, x2, y2, z2, realm := _DEFAULT_REALM)<br/>
+The function returns an array of all items in the bounds of the coordinates matching the POL_Class specified.</change>
+		</entry>
+		<entry>
+			<date>10-22-2018</date>
+			<author>Turley:</author>
+			<change type="Fixed">Undefined behaviour after ~20 days due to overflow in time measurment. This fixes both internal time measurments e.g. for repeating tasks, swing,.. and for the EScript function ReadMilliSecondClock() see below.</change>
+			<change type="Changed">ReadMillisecondClock() returns now a double instead of an integer to allow higher uptimes.</change>
+		</entry>
+		<entry>
+			<date>10-13-2018</date>
+			<author>Turley:</author>
+			<change type="Added">syshook.cfg SystemMethod for defining object class method scripts.<br/>
+Like itemdesc method scripts overriding builtin methods is possible, the builtin method can be called when prefixing with _.<br/>
+For UObject classes like shown in the objref docs the inheritance is respected<br/>
+so methods defined for items will be usable in weapons and methods defined in equipment override uobject methods.<br/>
+Valid cfg keys are:<br/>
+uobject, item, equipment, lockable, map, multi, armor, weapon, door, container, boat,<br/>
+house, spellbook, corpse, npc, character, client, account, party, guild<br/>
+Itemdesc/Npctemplate specific method scripts will still be first checked.</change>
+			<change type="Note">uoclient.cfg MethodScript entry is deprecated</change>
+		</entry>
+		<entry>
+			<date>10-12-2018</date>
+			<author>DevGIB:</author>
+			<change type="Changed">Added -1 as acceptable return from ConsumeAmmunition hook which will make the core continue with the normal ammunition checks.</change>
 		</entry>
 		<entry>
 			<date>10-07-2018</date>

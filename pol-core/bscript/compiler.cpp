@@ -680,7 +680,10 @@ bool Expression::optimize_token( int i )
             // 13: 1L
             // 14: set member id 'warmode' (27) += #
             if ( tokens[tokens.size() - 1]->id == TOK_CONSUMER )
+            {
+              delete tokens.back();
               tokens.pop_back();  // delete consumer
+            }
 
             if ( operand->id == TOK_PLUSEQUAL )
               oper->id = INS_SET_MEMBER_ID_CONSUME_PLUSEQUAL;
@@ -3965,7 +3968,7 @@ void Compiler::emitFileLine( CompilerContext& ctx )
   int cnt = program->tokens.count();
   program->fileline.resize( cnt + 1 );
   program->fileline[cnt] =
-      ctx.filename + ", Line " + Clib::decint( static_cast<unsigned int>( ctx.line ) );
+      ctx.filename + ", Line " + Clib::tostring( static_cast<unsigned int>( ctx.line ) );
 }
 void Compiler::emitFileLineIfFileChanged( CompilerContext& ctx )
 {
@@ -4982,6 +4985,7 @@ int Compiler::getFileContents( const char* file, char** iv )
   if ( fread( s, filelen, 1, fp ) != 1 )
   {
     fclose( fp );
+    free( s );
     return -1;
   }
 
@@ -5447,46 +5451,46 @@ void Compiler::dump( std::ostream& os )
 {
   program->dump( os );
 }
-}
-}
-/*
-    local x;      [ "x", RSV_LOCAL, # ]
-    local x:=5;      [ "x", RSV_LOCAL, 5, TOK_ASSIGN, # ]
-    local x,y:=5;    [ "x", RSV_LOCAL, #, "y", TOK_LOCAL,
-    local x:=5,y;
-
-    x := 5;
-
-    declare function foo(a,b,c,d);
-
-    function foo(a,b,c,d)
-    begin
-    return
-    or
-    return "hey"
-    end
-
-    statements:
-
-    if expr [then] statement [else statement];
-
-    do
-    statement;
-    while expr;
-
-    begin
-    statements;
-    end
-
-
-    while expr
-    statement;
-
-
-    Alternative:
-    if expr
-    statments;
-    [else
-    statements; ]
-    endif;
-    */
+}  // namespace Bscript
+}  // namespace Pol
+   /*
+       local x;      [ "x", RSV_LOCAL, # ]
+       local x:=5;      [ "x", RSV_LOCAL, 5, TOK_ASSIGN, # ]
+       local x,y:=5;    [ "x", RSV_LOCAL, #, "y", TOK_LOCAL,
+       local x:=5,y;
+   
+       x := 5;
+   
+       declare function foo(a,b,c,d);
+   
+       function foo(a,b,c,d)
+       begin
+       return
+       or
+       return "hey"
+       end
+   
+       statements:
+   
+       if expr [then] statement [else statement];
+   
+       do
+       statement;
+       while expr;
+   
+       begin
+       statements;
+       end
+   
+   
+       while expr
+       statement;
+   
+   
+       Alternative:
+       if expr
+       statments;
+       [else
+       statements; ]
+       endif;
+       */

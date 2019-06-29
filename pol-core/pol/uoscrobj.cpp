@@ -61,6 +61,8 @@
 #include "../bscript/objmembers.h"
 #include "../bscript/objmethods.h"
 #include "../clib/stlutil.h"
+#include "../plib/poltype.h"
+#include "../plib/uconst.h"
 #include "accounts/account.h"
 #include "accounts/acscrobj.h"
 #include "cmdlevel.h"
@@ -92,11 +94,10 @@
 #include "network/client.h"
 #include "network/packethelper.h"
 #include "network/packets.h"
+#include "network/pktdef.h"
 #include "npctmpl.h"
-#include "pktdef.h"
 #include "polclass.h"
 #include "polclock.h"
-#include "poltype.h"
 #include "proplist.h"
 #include "realms.h"
 #include "realms/realm.h"
@@ -104,7 +105,6 @@
 #include "statmsg.h"
 #include "syshookscript.h"
 #include "tooltips.h"
-#include "uconst.h"
 #include "ufunc.h"
 #include "umap.h"
 #include "unicode.h"
@@ -148,8 +148,7 @@ BObjectRef ECharacterRefObjImp::get_member_id( const int id )
   BObjectImp* result = obj_->get_script_member_id( id );
   if ( result != nullptr )
     return BObjectRef( result );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectRef ECharacterRefObjImp::get_member( const char* membername )
@@ -157,8 +156,7 @@ BObjectRef ECharacterRefObjImp::get_member( const char* membername )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_member_id( objmember->id );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectRef ECharacterRefObjImp::set_member_id( const int id, BObjectImp* value, bool /*copy*/ )
@@ -181,8 +179,7 @@ BObjectRef ECharacterRefObjImp::set_member_id( const int id, BObjectImp* value, 
   }
   if ( result != nullptr )
     return BObjectRef( result );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectRef ECharacterRefObjImp::set_member( const char* membername, BObjectImp* value, bool copy )
@@ -190,56 +187,40 @@ BObjectRef ECharacterRefObjImp::set_member( const char* membername, BObjectImp* 
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_member_id( objmember->id, value, copy );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectImp* ECharacterRefObjImp::call_method_id( const int id, Executor& ex, bool forcebuiltin )
 {
   // MethodScript for npcs in npc->template_ (npctmpl.h) (aka templatebased)
   //             for chars in uoclient_general (uoclient.h) (aka one global definition)
-  if ( !obj_->orphan() )
-  {
-    ObjMethod* mth = getObjMethod( id );
-    if ( mth->overridden && !forcebuiltin )
-    {
-      BObjectImp* imp = obj_->custom_script_method( mth->code, ex );
-      if ( imp )
-        return imp;
-    }
-    BObjectImp* imp = obj_->script_method_id( id, ex );
-    if ( imp != nullptr )
-      return imp;
-    else
-      return base::call_method_id( id, ex );
-  }
-  else
+  if ( obj_->orphan() )
     return new BError( "That object no longer exists" );
+  ObjMethod* mth = getObjMethod( id );
+  if ( mth->overridden && !forcebuiltin )
+  {
+    BObjectImp* imp = obj_->custom_script_method( mth->code, ex );
+    if ( imp )
+      return imp;
+  }
+  BObjectImp* imp = obj_->script_method_id( id, ex );
+  if ( imp != nullptr )
+    return imp;
+  return base::call_method_id( id, ex );
 }
 
 BObjectImp* ECharacterRefObjImp::call_method( const char* methodname, Executor& ex )
 {
   // MethodScript for npcs in npc->template_ (npctmpl.h) (aka templatebased)
   //             for chars in uoclient_general (uoclient.h) (aka one global definition)
-  bool forcebuiltin;
-  if ( methodname[0] == '_' )
-  {
-    ++methodname;
-    forcebuiltin = true;
-  }
-  else
-    forcebuiltin = false;
+  bool forcebuiltin{Executor::builtinMethodForced( methodname )};
   ObjMethod* objmethod = getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
     return this->call_method_id( objmethod->id, ex, forcebuiltin );
-  else
-  {
-    BObjectImp* imp = obj_->custom_script_method( methodname, ex );
-    if ( imp )
-      return imp;
-    else
-      return base::call_method( methodname, ex );
-  }
+  BObjectImp* imp = obj_->custom_script_method( methodname, ex );
+  if ( imp )
+    return imp;
+  return base::call_method( methodname, ex );
 }
 
 bool ECharacterRefObjImp::isTrue() const
@@ -266,8 +247,7 @@ bool ECharacterRefObjImp::operator==( const BObjectImp& objimp ) const
   }
   else if ( objimp.isa( Bscript::BObjectImp::OTBoolean ) )
     return isTrue() == static_cast<const Bscript::BBoolean&>( objimp ).isTrue();
-  else
-    return false;
+  return false;
 }
 
 bool ECharacterRefObjImp::operator<( const BObjectImp& objimp ) const
@@ -286,8 +266,7 @@ bool ECharacterRefObjImp::operator<( const BObjectImp& objimp ) const
     }
     else if ( aob->object_type() == &eitemrefobjimp_type )
       return true;
-    else
-      return false;
+    return false;
   }
   return base::operator<( objimp );
 }
@@ -330,8 +309,7 @@ BObjectRef EItemRefObjImp::get_member_id( const int id )
   BObjectImp* result = obj_->get_script_member_id( id );
   if ( result != nullptr )
     return BObjectRef( result );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectRef EItemRefObjImp::get_member( const char* membername )
@@ -339,8 +317,7 @@ BObjectRef EItemRefObjImp::get_member( const char* membername )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_member_id( objmember->id );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectRef EItemRefObjImp::set_member_id( const int id, BObjectImp* value, bool /*copy*/ )
@@ -363,8 +340,7 @@ BObjectRef EItemRefObjImp::set_member_id( const int id, BObjectImp* value, bool 
   }
   if ( result != nullptr )
     return BObjectRef( result );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectRef EItemRefObjImp::set_member( const char* membername, BObjectImp* value, bool copy )
@@ -372,58 +348,39 @@ BObjectRef EItemRefObjImp::set_member( const char* membername, BObjectImp* value
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_member_id( objmember->id, value, copy );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectImp* EItemRefObjImp::call_method_id( const int id, Executor& ex, bool forcebuiltin )
 {
-  if ( !obj_->orphan() )
-  {
-    ObjMethod* mth = getObjMethod( id );
-    if ( mth->overridden && !forcebuiltin )
-    {
-      BObjectImp* imp = obj_->custom_script_method( mth->code, ex );
-      if ( imp )
-        return imp;
-    }
-    BObjectImp* imp = obj_->script_method_id( id, ex );
-    if ( imp != nullptr )
-      return imp;
-    else
-    {
-      return base::call_method_id( id, ex );
-    }
-  }
-  else
-  {
+  if ( obj_->orphan() )
     return new BError( "That object no longer exists" );
+
+  ObjMethod* mth = getObjMethod( id );
+  if ( mth->overridden && !forcebuiltin )
+  {
+    BObjectImp* imp = obj_->custom_script_method( mth->code, ex );
+    if ( imp )
+      return imp;
   }
+  BObjectImp* imp = obj_->script_method_id( id, ex );
+  if ( imp != nullptr )
+    return imp;
+  return base::call_method_id( id, ex );
 }
 
 BObjectImp* EItemRefObjImp::call_method( const char* methodname, Executor& ex )
 {
-  bool forcebuiltin;
-  if ( methodname[0] == '_' )
-  {
-    ++methodname;
-    forcebuiltin = true;
-  }
-  else
-    forcebuiltin = false;
+  bool forcebuiltin{Executor::builtinMethodForced( methodname )};
 
   ObjMethod* objmethod = getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
     return this->call_method_id( objmethod->id, ex, forcebuiltin );
-  else
-  {
-    Items::Item* item = obj_.get();
-    BObjectImp* imp = item->custom_script_method( methodname, ex );
-    if ( imp )
-      return imp;
-    else
-      return base::call_method( methodname, ex );
-  }
+  Items::Item* item = obj_.get();
+  BObjectImp* imp = item->custom_script_method( methodname, ex );
+  if ( imp )
+    return imp;
+  return base::call_method( methodname, ex );
 }
 
 bool EItemRefObjImp::isTrue() const
@@ -445,13 +402,11 @@ bool EItemRefObjImp::operator==( const BObjectImp& objimp ) const
 
       return ( itemref_imp->obj_->serial == obj_->serial );
     }
-    else
-      return false;
+    return false;
   }
   else if ( objimp.isa( Bscript::BObjectImp::OTBoolean ) )
     return isTrue() == static_cast<const Bscript::BBoolean&>( objimp ).isTrue();
-  else
-    return false;
+  return false;
 }
 
 bool EItemRefObjImp::operator<( const BObjectImp& objimp ) const
@@ -468,8 +423,7 @@ bool EItemRefObjImp::operator<( const BObjectImp& objimp ) const
 
       return ( itemref_imp->obj_->serial < obj_->serial );
     }
-    else
-      return ( &eitemrefobjimp_type < aob->object_type() );
+    return ( &eitemrefobjimp_type < aob->object_type() );
   }
 
   return base::operator<( objimp );
@@ -494,8 +448,7 @@ BObjectRef EUBoatRefObjImp::get_member_id( const int id )
   BObjectImp* result = obj_->get_script_member_id( id );
   if ( result != nullptr )
     return BObjectRef( result );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectRef EUBoatRefObjImp::get_member( const char* membername )
@@ -503,8 +456,7 @@ BObjectRef EUBoatRefObjImp::get_member( const char* membername )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_member_id( objmember->id );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectRef EUBoatRefObjImp::set_member_id( const int id, BObjectImp* value, bool /*copy*/ )
@@ -527,8 +479,7 @@ BObjectRef EUBoatRefObjImp::set_member_id( const int id, BObjectImp* value, bool
   }
   if ( result != nullptr )
     return BObjectRef( result );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectRef EUBoatRefObjImp::set_member( const char* membername, BObjectImp* value, bool copy )
@@ -536,31 +487,34 @@ BObjectRef EUBoatRefObjImp::set_member( const char* membername, BObjectImp* valu
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_member_id( objmember->id, value, copy );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
-BObjectImp* EUBoatRefObjImp::call_method_id( const int id, Executor& ex, bool /*forcebuiltin*/ )
+BObjectImp* EUBoatRefObjImp::call_method_id( const int id, Executor& ex, bool forcebuiltin )
 {
-  if ( !obj_->orphan() )
-  {
-    BObjectImp* imp = obj_->script_method_id( id, ex );
-    if ( imp != nullptr )
-      return imp;
-    else
-      return base::call_method_id( id, ex );
-  }
-  else
+  if ( obj_->orphan() )
     return new BError( "That object no longer exists" );
+
+  ObjMethod* mth = getObjMethod( id );
+  if ( mth->overridden && !forcebuiltin )
+  {
+    BObjectImp* imp = obj_->custom_script_method( mth->code, ex );
+    if ( imp )
+      return imp;
+  }
+  BObjectImp* imp = obj_->script_method_id( id, ex );
+  if ( imp != nullptr )
+    return imp;
+  return base::call_method_id( id, ex );
 }
 
 BObjectImp* EUBoatRefObjImp::call_method( const char* methodname, Executor& ex )
 {
+  bool forcebuiltin{Executor::builtinMethodForced( methodname )};
   ObjMethod* objmethod = getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
-    return this->call_method_id( objmethod->id, ex );
-  else
-    return base::call_method( methodname, ex );
+    return this->call_method_id( objmethod->id, ex, forcebuiltin );
+  return base::call_method( methodname, ex );
 }
 
 bool EUBoatRefObjImp::isTrue() const
@@ -582,63 +536,44 @@ bool EUBoatRefObjImp::operator==( const BObjectImp& objimp ) const
 
       return ( boatref_imp->obj_->serial == obj_->serial );
     }
-    else
-      return false;
+    return false;
   }
   else if ( objimp.isa( Bscript::BObjectImp::OTBoolean ) )
     return isTrue() == static_cast<const Bscript::BBoolean&>( objimp ).isTrue();
-  else
-    return false;
+  return false;
 }
 
 BObjectImp* EMultiRefObjImp::call_method( const char* methodname, Executor& ex )
 {
-  bool forcebuiltin;
-  if ( methodname[0] == '_' )
-  {
-    ++methodname;
-    forcebuiltin = true;
-  }
-  else
-    forcebuiltin = false;
-
+  bool forcebuiltin{Executor::builtinMethodForced( methodname )};
   ObjMethod* objmethod = getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
     return this->call_method_id( objmethod->id, ex, forcebuiltin );
-  else
-  {
-    Multi::UMulti* multi = obj_.get();
-    BObjectImp* imp = multi->custom_script_method( methodname, ex );
-    if ( imp )
-      return imp;
-    else
-      return base::call_method( methodname, ex );
-  }
+  Multi::UMulti* multi = obj_.get();
+  BObjectImp* imp = multi->custom_script_method( methodname, ex );
+  if ( imp )
+    return imp;
+  return base::call_method( methodname, ex );
 }
 
 BObjectImp* EMultiRefObjImp::call_method_id( const int id, Executor& ex, bool forcebuiltin )
 {
   Multi::UMulti* multi = obj_.get();
-  if ( !multi->orphan() )
-  {
-    ObjMethod* mth = getObjMethod( id );
-    if ( mth->overridden && !forcebuiltin )
-    {
-      BObjectImp* imp = multi->custom_script_method( mth->code, ex );
-      if ( imp )
-        return imp;
-    }
-
-    BObjectImp* imp = multi->script_method_id( id, ex );
-    if ( imp != nullptr )
-      return imp;
-    else
-      return base::call_method_id( id, ex, forcebuiltin );
-  }
-  else
-  {
+  if ( multi->orphan() )
     return new BError( "That object no longer exists" );
+
+  ObjMethod* mth = getObjMethod( id );
+  if ( mth->overridden && !forcebuiltin )
+  {
+    BObjectImp* imp = multi->custom_script_method( mth->code, ex );
+    if ( imp )
+      return imp;
   }
+
+  BObjectImp* imp = multi->script_method_id( id, ex );
+  if ( imp != nullptr )
+    return imp;
+  return base::call_method_id( id, ex, forcebuiltin );
 }
 
 const char* EMultiRefObjImp::typeOf() const
@@ -660,8 +595,7 @@ BObjectRef EMultiRefObjImp::get_member_id( const int id )
   BObjectImp* result = obj_->get_script_member_id( id );
   if ( result != nullptr )
     return BObjectRef( result );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectRef EMultiRefObjImp::get_member( const char* membername )
@@ -669,8 +603,7 @@ BObjectRef EMultiRefObjImp::get_member( const char* membername )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_member_id( objmember->id );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectRef EMultiRefObjImp::set_member_id( const int id, BObjectImp* value, bool /*copy*/ )
@@ -693,16 +626,14 @@ BObjectRef EMultiRefObjImp::set_member_id( const int id, BObjectImp* value, bool
   }
   if ( result != nullptr )
     return BObjectRef( result );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 BObjectRef EMultiRefObjImp::set_member( const char* membername, BObjectImp* value, bool copy )
 {
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_member_id( objmember->id, value, copy );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 bool EMultiRefObjImp::isTrue() const
@@ -724,13 +655,11 @@ bool EMultiRefObjImp::operator==( const BObjectImp& objimp ) const
 
       return ( multiref_imp->obj_->serial == obj_->serial );
     }
-    else
-      return false;
+    return false;
   }
   else if ( objimp.isa( Bscript::BObjectImp::OTBoolean ) )
     return isTrue() == static_cast<const Bscript::BBoolean&>( objimp ).isTrue();
-  else
-    return false;
+  return false;
 }
 }  // namespace Module
 
@@ -810,8 +739,7 @@ BObjectImp* UObject::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UObject::set_script_member_id( const int id, const std::string& value )
@@ -838,8 +766,7 @@ BObjectImp* UObject::set_script_member( const char* membername, const std::strin
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UObject::set_script_member_id( const int id, int value )
@@ -858,8 +785,7 @@ BObjectImp* UObject::set_script_member_id( const int id, int value )
     bool res = setcolor( static_cast<unsigned short>( value ) );
     if ( !res )  // TODO log?
       return new BError( "Invalid color value " + Clib::hexint( value ) );
-    else
-      return new BLong( color );
+    return new BLong( color );
   }
   default:
     return nullptr;
@@ -871,8 +797,7 @@ BObjectImp* UObject::set_script_member( const char* membername, int value )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UObject::set_script_member_id_double( const int /*id*/, double /*value*/ )
@@ -886,8 +811,7 @@ BObjectImp* UObject::set_script_member_double( const char* membername, double va
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id_double( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 }  // namespace Core
 
@@ -915,8 +839,7 @@ BObjectImp* Item::get_script_member_id( const int id ) const
   case MBR_CONTAINER:
     if ( container != nullptr )
       return container->make_ref();
-    else
-      return new BLong( 0 );
+    return new BLong( 0 );
     break;
   case MBR_USESCRIPT:
     return new String( on_use_script_ );
@@ -975,6 +898,48 @@ BObjectImp* Item::get_script_member_id( const int id ) const
   case MBR_PHYSICAL_RESIST:
     return new BLong( physical_resist().sum() );
     break;
+  case MBR_LOWER_REAG_COST:
+    return new BLong( lower_reagent_cost().sum() );
+    break;
+  case MBR_SPELL_DAMAGE_INCREASE:
+    return new BLong( spell_damage_increase().sum() );
+    break;
+  case MBR_FASTER_CASTING:
+    return new BLong( faster_casting().sum() );
+    break;
+  case MBR_FASTER_CAST_RECOVERY:
+    return new BLong( faster_casting().sum() );
+    break;
+  case MBR_DEFENCE_CHANCE_INCREASE:
+    return new BLong( defence_increase().sum() );
+    break;
+  case MBR_DEFENCE_CHANCE_INCREASE_CAP:
+    return new BLong( defence_increase_cap().sum() );
+    break;
+  case MBR_LOWER_MANA_COST:
+    return new BLong( lower_mana_cost().sum() );
+    break;
+  case MBR_HIT_CHANCE:
+    return new BLong( hit_chance().sum() );
+    break;
+  case MBR_FIRE_RESIST_CAP:
+    return new BLong( fire_resist_cap().sum() );
+    break;
+  case MBR_COLD_RESIST_CAP:
+    return new BLong( cold_resist_cap().sum() );
+    break;
+  case MBR_ENERGY_RESIST_CAP:
+    return new BLong( energy_resist_cap().sum() );
+    break;
+  case MBR_POISON_RESIST_CAP:
+    return new BLong( poison_resist_cap().sum() );
+    break;
+  case MBR_PHYSICAL_RESIST_CAP:
+    return new BLong( physical_resist_cap().sum() );
+    break;
+  case MBR_LUCK:
+    return new BLong( luck().sum() );
+    break;
   case MBR_FIRE_RESIST_MOD:
     return new BLong( fire_resist().mod );
     break;
@@ -1020,11 +985,53 @@ BObjectImp* Item::get_script_member_id( const int id ) const
   case MBR_PHYSICAL_DAMAGE_MOD:
     return new BLong( physical_damage().mod );
     break;
+  case MBR_LOWER_REAG_COST_MOD:
+    return new BLong( lower_reagent_cost().mod );
+    break;
+  case MBR_SPELL_DAMAGE_INCREASE_MOD:
+    return new BLong( spell_damage_increase().mod );
+    break;
+  case MBR_FASTER_CASTING_MOD:
+    return new BLong( faster_casting().mod );
+    break;
+  case MBR_FASTER_CAST_RECOVERY_MOD:
+    return new BLong( faster_casting().mod );
+    break;
+  case MBR_DEFENCE_CHANCE_INCREASE_MOD:
+    return new BLong( defence_increase().mod );
+    break;
+  case MBR_DEFENCE_CHANCE_INCREASE_CAP_MOD:
+    return new BLong( defence_increase_cap().mod );
+    break;
+  case MBR_LOWER_MANA_COST_MOD:
+    return new BLong( lower_mana_cost().mod );
+    break;
+  case MBR_HIT_CHANCE_MOD:
+    return new BLong( hit_chance().mod );
+    break;
+  case MBR_FIRE_RESIST_CAP_MOD:
+    return new BLong( fire_resist_cap().mod );
+    break;
+  case MBR_COLD_RESIST_CAP_MOD:
+    return new BLong( cold_resist_cap().mod );
+    break;
+  case MBR_ENERGY_RESIST_CAP_MOD:
+    return new BLong( energy_resist_cap().mod );
+    break;
+  case MBR_POISON_RESIST_CAP_MOD:
+    return new BLong( poison_resist_cap().mod );
+    break;
+  case MBR_PHYSICAL_RESIST_CAP_MOD:
+    return new BLong( physical_resist_cap().mod );
+    break;
+  case MBR_LUCK_MOD:
+    return new BLong( luck().mod );
+    break;
+
   case MBR_GETGOTTENBY:
     if ( has_gotten_by() )
       return new Module::ECharacterRefObjImp( gotten_by() );
-    else
-      return new BError( "Gotten By nullptr" );
+    return new BError( "Gotten By nullptr" );
     break;
   case MBR_PROCESS:
   {
@@ -1034,8 +1041,7 @@ BObjectImp* Item::get_script_member_id( const int id ) const
       Core::UOExecutor* executor = static_cast<Core::UOExecutor*>( &proc->exec );
       return new Core::ScriptExObjImp( executor );
     }
-    else
-      return new BError( "No script running" );
+    return new BError( "No script running" );
     break;
   }
   case MBR_DOUBLECLICKRANGE:
@@ -1076,8 +1082,7 @@ BObjectImp* Item::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* Item::set_script_member_id( const int id, const std::string& value )
@@ -1114,8 +1119,7 @@ BObjectImp* Item::set_script_member( const char* membername, const std::string& 
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* Item::set_script_member_id( const int id, int value )
@@ -1226,26 +1230,258 @@ BObjectImp* Item::set_script_member_id( const int id, int value )
     }
     return new BLong( physical_resist().mod );
     break;
+  case MBR_FIRE_RESIST_CAP_MOD:
+    fire_resist_cap( fire_resist_cap().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( fire_resist_cap().mod );
+    break;
+  case MBR_COLD_RESIST_CAP_MOD:
+    cold_resist_cap( cold_resist_cap().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( cold_resist_cap().mod );
+    break;
+  case MBR_ENERGY_RESIST_CAP_MOD:
+    energy_resist_cap( energy_resist_cap().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( energy_resist_cap().mod );
+    break;
+  case MBR_POISON_RESIST_CAP_MOD:
+    poison_resist_cap( poison_resist_cap().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( poison_resist_cap().mod );
+    break;
+  case MBR_PHYSICAL_RESIST_CAP_MOD:
+    physical_resist_cap( physical_resist_cap().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( physical_resist_cap().mod );
+    break;
+
   case MBR_FIRE_DAMAGE_MOD:
     fire_damage( fire_damage().setAsMod( static_cast<short>( value ) ) );
-    return new BLong( static_cast<short>( value ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( fire_damage().mod );
     break;
   case MBR_COLD_DAMAGE_MOD:
     cold_damage( cold_damage().setAsMod( static_cast<short>( value ) ) );
-    return new BLong( static_cast<short>( value ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( cold_damage().mod );
     break;
   case MBR_ENERGY_DAMAGE_MOD:
     energy_damage( energy_damage().setAsMod( static_cast<short>( value ) ) );
-    return new BLong( static_cast<short>( value ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( energy_damage().mod );
     break;
   case MBR_POISON_DAMAGE_MOD:
     poison_damage( poison_damage().setAsMod( static_cast<short>( value ) ) );
-    return new BLong( static_cast<short>( value ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( poison_damage().mod );
     break;
+
   case MBR_PHYSICAL_DAMAGE_MOD:
     physical_damage( physical_damage().setAsMod( static_cast<short>( value ) ) );
-    return new BLong( static_cast<short>( value ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( physical_damage().mod );
     break;
+
+  case MBR_LOWER_REAG_COST_MOD:
+    lower_reagent_cost( lower_reagent_cost().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( lower_reagent_cost().mod );
+    break;
+  case MBR_SPELL_DAMAGE_INCREASE_MOD:
+    spell_damage_increase( spell_damage_increase().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( spell_damage_increase().mod );
+    break;
+  case MBR_FASTER_CASTING_MOD:
+    faster_casting( faster_casting().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( faster_casting().mod );
+    break;
+  case MBR_FASTER_CAST_RECOVERY_MOD:
+    faster_cast_recovery( faster_cast_recovery().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( faster_cast_recovery().mod );
+    break;
+  case MBR_DEFENCE_CHANCE_INCREASE_MOD:
+    defence_increase( defence_increase().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( defence_increase().mod );
+    break;
+  case MBR_DEFENCE_CHANCE_INCREASE_CAP_MOD:
+    defence_increase_cap( defence_increase_cap().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( defence_increase_cap().mod );
+    break;
+  case MBR_LOWER_MANA_COST_MOD:
+    lower_mana_cost( lower_mana_cost().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( lower_mana_cost().mod );
+    break;
+  case MBR_HITCHANCE_MOD:  // to be made redundant in the future
+  case MBR_HIT_CHANCE_MOD:
+    hit_chance( hit_chance().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( hit_chance().mod );
+    break;
+  case MBR_LUCK_MOD:
+    luck( luck().setAsMod( static_cast<short>( value ) ) );
+    if ( container != nullptr )
+    {
+      if ( Core::IsCharacter( container->serial ) )
+      {
+        Mobile::Character* chr = chr_from_wornitems( container );
+        if ( chr != nullptr )
+          chr->refresh_ar();
+      }
+    }
+    return new BLong( luck().mod );
+    break;
+
   case MBR_QUALITY:
     setQuality( double( value ) );
     return new Double( double( value ) );
@@ -1294,8 +1530,7 @@ BObjectImp* Item::set_script_member( const char* membername, int value )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* Item::set_script_member_id_double( const int id, double value )
@@ -1318,8 +1553,7 @@ BObjectImp* Item::set_script_member_double( const char* membername, double value
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id_double( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* Item::script_method_id( const int id, Executor& ex )
@@ -1386,8 +1620,7 @@ BObjectImp* Item::script_method_id( const int id, Executor& ex )
         update_item_to_inrange( this );
       if ( new_stack != nullptr )
         return new Module::EItemRefObjImp( new_stack );
-      else
-        return nullptr;
+      return nullptr;
     }
 
 
@@ -1472,8 +1705,7 @@ BObjectImp* Item::script_method_id( const int id, Executor& ex )
         update_item_to_inrange( this );
       if ( new_stack != nullptr )
         return new Module::EItemRefObjImp( new_stack );
-      else
-        return nullptr;
+      return nullptr;
     }
 
     if ( amt == this->getamount() )
@@ -1564,8 +1796,7 @@ BObjectImp* Item::script_method_id( const int id, Executor& ex )
 
     if ( existing_stack != nullptr )
       return new Module::EItemRefObjImp( existing_stack );
-    else
-      return nullptr;
+    return nullptr;
 
     break;
   }
@@ -1615,8 +1846,7 @@ BObjectImp* Item::script_method( const char* methodname, Executor& ex )
   ObjMethod* objmethod = getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
     return this->script_method_id( objmethod->id, ex );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* Item::custom_script_method( const char* methodname, Executor& ex )
@@ -1629,17 +1859,19 @@ BObjectImp* Item::custom_script_method( const char* methodname, Executor& ex )
              methodname, static_cast<unsigned int>( ex.numParams() + 1 ), PC ) )
       return id.method_script->call( PC, make_ref(), ex.fparams );
   }
-  return nullptr;
+  return Core::gamestate.system_hooks.call_script_method( methodname, &ex, this );
 }
 
 BObject Item::call_custom_method( const char* methodname )
 {
+  // no systemhook needed used for openbook uo module function
   BObjectImpRefVec noparams;
   return call_custom_method( methodname, noparams );
 }
 
 BObject Item::call_custom_method( const char* methodname, BObjectImpRefVec& pmore )
 {
+  // no systemhook needed used for openbook uo module function
   const ItemDesc& id = itemdesc();
   if ( id.method_script != nullptr )
   {
@@ -1652,13 +1884,12 @@ BObject Item::call_custom_method( const char* methodname, BObjectImpRefVec& pmor
       std::string message;
       message = "Method script for objtype " + id.objtype_description() +
                 " does not export function " + std::string( methodname ) + " taking " +
-                Clib::decint( pmore.size() + 1 ) + " parameters";
+                Clib::tostring( pmore.size() + 1 ) + " parameters";
       BError* err = new BError( message );
       return BObject( err );
     }
   }
-  else
-    return BObject( new BError( "No method script defined for " + id.objtype_description() ) );
+  return BObject( new BError( "No method script defined for " + id.objtype_description() ) );
 }
 
 BObjectImp* Item::make_ref()
@@ -1697,6 +1928,17 @@ BObjectImp* Character::get_script_member_id( const int id ) const
   BObjectImp* imp = base::get_script_member_id( id );
   if ( imp != nullptr )
     return imp;
+
+
+  auto EnforceCaps = []( s16 baseValue, const s16 capValue ) -> s16 {
+    const bool ignore_caps = Core::settingsManager.ssopt.core_ignores_defence_caps;
+
+
+    if ( !ignore_caps )
+      baseValue = std::min( baseValue, capValue );
+
+    return baseValue;
+  };
 
   switch ( id )
   {
@@ -1756,8 +1998,7 @@ BObjectImp* Character::get_script_member_id( const int id ) const
     Items::Item* bp = backpack();
     if ( bp != nullptr )
       return bp->make_ref();
-    else
-      return new BError( "That has no backpack" );
+    return new BError( "That has no backpack" );
     break;
   }
   case MBR_TRADEWINDOW:
@@ -1765,34 +2006,29 @@ BObjectImp* Character::get_script_member_id( const int id ) const
     Core::UContainer* tw = trading_cont.get();
     if ( trading_with != nullptr )
       return tw->make_ref();
-    else
-      return new BError( "That has no active tradewindow" );
+    return new BError( "That has no active tradewindow" );
     break;
   }
   case MBR_WEAPON:
     if ( weapon != nullptr )
       return weapon->make_ref();
-    else
-      return new BLong( 0 );
+    return new BLong( 0 );
     break;
   case MBR_SHIELD:
     if ( shield != nullptr )
       return shield->make_ref();
-    else
-      return new BLong( 0 );
+    return new BLong( 0 );
     break;
   case MBR_ACCTNAME:
     if ( acct != nullptr )
       return new String( acct->name() );
-    else
-      return new BError( "Not attached to an account" );
+    return new BError( "Not attached to an account" );
     break;
 
   case MBR_ACCT:
     if ( acct != nullptr )
       return new Accounts::AccountObjImp( Accounts::AccountPtrHolder( acct ) );
-    else
-      return new BError( "Not attached to an account" );
+    return new BError( "Not attached to an account" );
     break;
   case MBR_CMDLEVEL:
     return new BLong( cmdlevel() );
@@ -1809,8 +2045,7 @@ BObjectImp* Character::get_script_member_id( const int id ) const
   case MBR_IP:
     if ( client != nullptr )
       return new String( client->ipaddrAsString() );
-    else
-      return new String( "" );
+    return new String( "" );
     break;
   case MBR_GOLD:
     return new BLong( gold_carried() );
@@ -1837,8 +2072,7 @@ BObjectImp* Character::get_script_member_id( const int id ) const
   case MBR_GUILD:
     if ( has_guild() )
       return Module::GuildExecutorModule::CreateGuildRefObjImp( guild() );
-    else
-      return new BError( "Not a member of a guild" );
+    return new BError( "Not a member of a guild" );
     break;
 
   case MBR_MURDERER:
@@ -1847,14 +2081,12 @@ BObjectImp* Character::get_script_member_id( const int id ) const
   case MBR_ATTACHED:
     if ( script_ex == nullptr )
       return new BError( "No script attached." );
-    else
-      return new Core::ScriptExObjImp( script_ex );
+    return new Core::ScriptExObjImp( script_ex );
     break;
   case MBR_CLIENTVERSION:
     if ( client != nullptr )
       return new String( client->getversion() );
-    else
-      return new String( "" );
+    return new String( "" );
     break;
   case MBR_CLIENTVERSIONDETAIL:
     if ( client != nullptr )
@@ -1881,8 +2113,7 @@ BObjectImp* Character::get_script_member_id( const int id ) const
   case MBR_CLIENTINFO:
     if ( client != nullptr )
       return client->getclientinfo();
-    else
-      return new BLong( 0 );
+    return new BLong( 0 );
     break;
 
   case MBR_CREATEDAT:
@@ -1896,8 +2127,7 @@ BObjectImp* Character::get_script_member_id( const int id ) const
   case MBR_OPPONENT:
     if ( opponent_ != nullptr )
       return opponent_->make_ref();
-    else
-      return new BError( "Mobile does not have any opponent selected." );
+    return new BError( "Mobile does not have any opponent selected." );
     break;
   case MBR_CONNECTED:
     return new BLong( connected() ? 1 : 0 );
@@ -1905,8 +2135,7 @@ BObjectImp* Character::get_script_member_id( const int id ) const
   case MBR_TRADING_WITH:
     if ( trading_with != nullptr )
       return trading_with->make_ref();
-    else
-      return new BError( "Mobile is not currently trading with anyone." );
+    return new BError( "Mobile is not currently trading with anyone." );
     break;
   case MBR_CLIENTTYPE:
     return new BLong( client != nullptr ? client->ClientType : 0 );
@@ -1914,31 +2143,28 @@ BObjectImp* Character::get_script_member_id( const int id ) const
   case MBR_CURSOR:
     if ( client != nullptr )
       return new BLong( target_cursor_busy() ? 1 : 0 );
-    else
-      return new BLong( 0 );
+    return new BLong( 0 );
     break;
   case MBR_GUMP:
     if ( client != nullptr )
       return new BLong( has_active_gump() ? 1 : 0 );
-    else
-      return new BLong( 0 );
+    return new BLong( 0 );
     break;
   case MBR_PROMPT:
     if ( client != nullptr )
       return new BLong( has_active_prompt() ? 1 : 0 );
-    else
-      return new BLong( 0 );
+    return new BLong( 0 );
     break;
   case MBR_MOVEMODE:
   {
     std::string mode = "";
-    if ( movemode & Core::MOVEMODE_LAND )
+    if ( movemode & Plib::MOVEMODE_LAND )
       mode = "L";
-    if ( movemode & Core::MOVEMODE_SEA )
+    if ( movemode & Plib::MOVEMODE_SEA )
       mode += "S";
-    if ( movemode & Core::MOVEMODE_AIR )
+    if ( movemode & Plib::MOVEMODE_AIR )
       mode += "A";
-    if ( movemode & Core::MOVEMODE_FLY )
+    if ( movemode & Plib::MOVEMODE_FLY )
       mode += "F";
     return new String( mode );
     break;
@@ -1956,20 +2182,15 @@ BObjectImp* Character::get_script_member_id( const int id ) const
     return new BLong( carrying_capacity() );
     break;
   case MBR_FIRE_RESIST:
-    return new BLong( fire_resist().value );
-    break;
+    return new BLong( EnforceCaps( fire_resist().sum(), fire_resist_cap().sum() ) );
   case MBR_COLD_RESIST:
-    return new BLong( cold_resist().value );
-    break;
+    return new BLong( EnforceCaps( cold_resist().sum(), cold_resist_cap().sum() ) );
   case MBR_ENERGY_RESIST:
-    return new BLong( energy_resist().value );
-    break;
+    return new BLong( EnforceCaps( energy_resist().sum(), energy_resist_cap().sum() ) );
   case MBR_POISON_RESIST:
-    return new BLong( poison_resist().value );
-    break;
+    return new BLong( EnforceCaps( poison_resist().sum(), poison_resist_cap().sum() ) );
   case MBR_PHYSICAL_RESIST:
-    return new BLong( physical_resist().value );
-    break;
+    return new BLong( EnforceCaps( physical_resist().sum(), physical_resist_cap().sum() ) );
   case MBR_FIRE_RESIST_MOD:
     return new BLong( fire_resist().mod );
     break;
@@ -1985,6 +2206,84 @@ BObjectImp* Character::get_script_member_id( const int id ) const
   case MBR_PHYSICAL_RESIST_MOD:
     return new BLong( physical_resist().mod );
     break;
+  case MBR_FIRE_RESIST_CAP:
+    return new BLong( fire_resist_cap().sum() );
+    break;
+  case MBR_COLD_RESIST_CAP:
+    return new BLong( cold_resist_cap().sum() );
+    break;
+  case MBR_ENERGY_RESIST_CAP:
+    return new BLong( energy_resist_cap().sum() );
+    break;
+  case MBR_POISON_RESIST_CAP:
+    return new BLong( poison_resist_cap().sum() );
+    break;
+  case MBR_PHYSICAL_RESIST_CAP:
+    return new BLong( physical_resist_cap().sum() );
+    break;
+  case MBR_FIRE_RESIST_CAP_MOD:
+    return new BLong( fire_resist_cap().mod );
+    break;
+  case MBR_COLD_RESIST_CAP_MOD:
+    return new BLong( cold_resist_cap().mod );
+    break;
+  case MBR_ENERGY_RESIST_CAP_MOD:
+    return new BLong( energy_resist_cap().mod );
+    break;
+  case MBR_POISON_RESIST_CAP_MOD:
+    return new BLong( poison_resist_cap().mod );
+    break;
+  case MBR_PHYSICAL_RESIST_CAP_MOD:
+    return new BLong( physical_resist_cap().mod );
+    break;
+  case MBR_LOWER_REAG_COST:
+    return new BLong( lower_reagent_cost().sum() );
+    break;
+  case MBR_SPELL_DAMAGE_INCREASE:
+    return new BLong( spell_damage_increase().sum() );
+    break;
+  case MBR_FASTER_CASTING:
+    return new BLong( faster_casting().sum() );
+    break;
+  case MBR_FASTER_CAST_RECOVERY:
+    return new BLong( faster_cast_recovery().sum() );
+    break;
+  case MBR_LOWER_REAG_COST_MOD:
+    return new BLong( lower_reagent_cost().mod );
+    break;
+  case MBR_SPELL_DAMAGE_INCREASE_MOD:
+    return new BLong( spell_damage_increase().mod );
+    break;
+  case MBR_FASTER_CASTING_MOD:
+    return new BLong( faster_casting().mod );
+    break;
+  case MBR_FASTER_CAST_RECOVERY_MOD:
+    return new BLong( faster_cast_recovery().mod );
+    break;
+  case MBR_DEFENCE_CHANCE_INCREASE_MOD:
+    return new BLong( defence_increase().mod );
+    break;
+  case MBR_DEFENCE_CHANCE_INCREASE_CAP_MOD:
+    return new BLong( defence_increase_cap().mod );
+    break;
+  case MBR_LOWER_MANA_COST_MOD:
+    return new BLong( lower_mana_cost().mod );
+    break;
+  case MBR_HIT_CHANCE_MOD:
+    return new BLong( hit_chance().mod );
+    break;
+  case MBR_DEFENCE_CHANCE_INCREASE:
+    return new BLong( EnforceCaps( defence_increase().sum(), defence_increase_cap().sum() ) );
+    break;
+  case MBR_DEFENCE_CHANCE_INCREASE_CAP:
+    return new BLong( defence_increase_cap().sum() );
+    break;
+  case MBR_LOWER_MANA_COST:
+    return new BLong( lower_mana_cost().sum() );
+    break;
+  case MBR_HIT_CHANCE:
+    return new BLong( hit_chance().sum() );
+    break;
   case MBR_STATCAP:
     return new BLong( skillstatcap().statcap );
     break;
@@ -1992,7 +2291,10 @@ BObjectImp* Character::get_script_member_id( const int id ) const
     return new BLong( skillstatcap().skillcap );
     break;
   case MBR_LUCK:
-    return new BLong( luck() );
+    return new BLong( luck().sum() );
+    break;
+  case MBR_LUCK_MOD:
+    return new BLong( luck().mod );
     break;
   case MBR_FOLLOWERSMAX:
     return new BLong( followers().followers_max );
@@ -2004,19 +2306,19 @@ BObjectImp* Character::get_script_member_id( const int id ) const
     return new BLong( followers().followers );
     break;
   case MBR_FIRE_DAMAGE:
-    return new BLong( fire_damage().value );
+    return new BLong( fire_damage().sum() );
     break;
   case MBR_COLD_DAMAGE:
-    return new BLong( cold_damage().value );
+    return new BLong( cold_damage().sum() );
     break;
   case MBR_ENERGY_DAMAGE:
-    return new BLong( energy_damage().value );
+    return new BLong( energy_damage().sum() );
     break;
   case MBR_POISON_DAMAGE:
-    return new BLong( poison_damage().value );
+    return new BLong( poison_damage().sum() );
     break;
   case MBR_PHYSICAL_DAMAGE:
-    return new BLong( physical_damage().value );
+    return new BLong( physical_damage().sum() );
     break;
   case MBR_FIRE_DAMAGE_MOD:
     return new BLong( fire_damage().mod );
@@ -2036,16 +2338,14 @@ BObjectImp* Character::get_script_member_id( const int id ) const
   case MBR_PARTY:
     if ( has_party() )
       return Module::CreatePartyRefObjImp( party() );
-    else
-      return new BError( "Not a member of a party" );
+    return new BError( "Not a member of a party" );
     break;
   case MBR_PARTYLOOT:
     return new BLong( party_can_loot() );
   case MBR_CANDIDATE_OF_PARTY:
     if ( has_candidate_of() )
       return Module::CreatePartyRefObjImp( candidate_of() );
-    else
-      return new BError( "Not a candidate of a party" );
+    return new BError( "Not a candidate of a party" );
     break;
   case MBR_MOVECOST_WALK:
     return new Double( movement_cost().walk );
@@ -2078,8 +2378,7 @@ BObjectImp* Character::get_script_member_id( const int id ) const
   case MBR_CLIENT:
     if ( ( client != nullptr ) && ( client->isConnected() ) )
       return client->make_ref();
-    else
-      return new BError( "No client attached." );
+    return new BError( "No client attached." );
     break;
   case MBR_EDITING:
     return new BLong( is_house_editing() ? 1 : 0 );
@@ -2110,8 +2409,7 @@ BObjectImp* Character::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* Character::set_script_member_id( const int id, const std::string& value )
@@ -2154,8 +2452,7 @@ BObjectImp* Character::set_script_member( const char* membername, const std::str
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* Character::set_script_member_id( const int id, int value )
@@ -2168,20 +2465,20 @@ BObjectImp* Character::set_script_member_id( const int id, int value )
   {
   case MBR_GENDER:
     if ( value )
-      gender = Core::GENDER_FEMALE;
+      gender = Plib::GENDER_FEMALE;
     else
-      gender = Core::GENDER_MALE;
+      gender = Plib::GENDER_MALE;
     return new BLong( gender );
   case MBR_RACE:
-    if ( value == Core::RACE_HUMAN )
-      race = Core::RACE_HUMAN;
-    else if ( value == Core::RACE_ELF )
-      race = Core::RACE_ELF;
-    else if ( value == Core::RACE_GARGOYLE )
-      race = Core::RACE_GARGOYLE;
-    if ( ( race != Core::RACE_GARGOYLE ) &&
-         ( movemode & Core::MOVEMODE_FLY ) )                           // FIXME graphic based maybe?
-      movemode = ( Core::MOVEMODE )( movemode ^ Core::MOVEMODE_FLY );  // remove flying
+    if ( value == Plib::RACE_HUMAN )
+      race = Plib::RACE_HUMAN;
+    else if ( value == Plib::RACE_ELF )
+      race = Plib::RACE_ELF;
+    else if ( value == Plib::RACE_GARGOYLE )
+      race = Plib::RACE_GARGOYLE;
+    if ( ( race != Plib::RACE_GARGOYLE ) &&
+         ( movemode & Plib::MOVEMODE_FLY ) )                           // FIXME graphic based maybe?
+      movemode = ( Plib::MOVEMODE )( movemode ^ Plib::MOVEMODE_FLY );  // remove flying
     return new BLong( race );
   case MBR_TRUEOBJTYPE:
     return new BLong( trueobjtype = static_cast<unsigned int>( value ) );
@@ -2240,7 +2537,7 @@ BObjectImp* Character::set_script_member_id( const int id, int value )
     }
     return new BLong( carrying_capacity_mod() );
   case MBR_FACING:
-    if ( !face( static_cast<Core::UFACING>( value & PKTIN_02_FACING_MASK ), 0 ) )
+    if ( !face( static_cast<Plib::UFACING>( value & PKTIN_02_FACING_MASK ), 0 ) )
       return new BLong( 0 );
     on_facing_changed();
     return new BLong( 1 );
@@ -2269,6 +2566,76 @@ BObjectImp* Character::set_script_member_id( const int id, int value )
     refresh_ar();
     return new BLong( physical_resist().mod );
     break;
+  case MBR_LOWER_REAG_COST_MOD:
+    lower_reagent_cost( lower_reagent_cost().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( lower_reagent_cost().mod );
+    break;
+  case MBR_SPELL_DAMAGE_INCREASE_MOD:
+    spell_damage_increase( spell_damage_increase().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( spell_damage_increase().mod );
+    break;
+  case MBR_FASTER_CASTING_MOD:
+    faster_casting( faster_casting().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( faster_casting().mod );
+    break;
+  case MBR_FASTER_CAST_RECOVERY_MOD:
+    faster_cast_recovery( faster_cast_recovery().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( faster_cast_recovery().mod );
+    break;
+  case MBR_DEFENCE_CHANCE_INCREASE_MOD:
+    defence_increase( defence_increase().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( defence_increase().mod );
+    break;
+  case MBR_DEFENCE_CHANCE_INCREASE_CAP_MOD:
+    defence_increase_cap( defence_increase_cap().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( defence_increase_cap().mod );
+    break;
+  case MBR_LOWER_MANA_COST_MOD:
+    lower_mana_cost( lower_mana_cost().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( lower_mana_cost().mod );
+    break;
+  case MBR_HIT_CHANCE_MOD:
+    hit_chance( hit_chance().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( hit_chance().mod );
+    break;
+  case MBR_FIRE_RESIST_CAP_MOD:
+    fire_resist_cap( fire_resist_cap().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( fire_resist_cap().mod );
+    break;
+  case MBR_COLD_RESIST_CAP_MOD:
+    cold_resist_cap( cold_resist_cap().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( cold_resist_cap().mod );
+    break;
+  case MBR_ENERGY_RESIST_CAP_MOD:
+    energy_resist_cap( energy_resist_cap().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( energy_resist_cap().mod );
+    break;
+  case MBR_PHYSICAL_RESIST_CAP_MOD:
+    physical_resist_cap( physical_resist_cap().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( physical_resist_cap().mod );
+    break;
+  case MBR_POISON_RESIST_CAP_MOD:
+    poison_resist_cap( poison_resist_cap().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( poison_resist_cap().mod );
+    break;
+  case MBR_LUCK_MOD:
+    luck( luck().setAsMod( static_cast<short>( value ) ) );
+    refresh_ar();
+    return new BLong( luck().mod );
+    break;
   case MBR_STATCAP:
   {
     auto val = skillstatcap();
@@ -2285,12 +2652,6 @@ BObjectImp* Character::set_script_member_id( const int id, int value )
     skillstatcap( val );
     return new BLong( skillstatcap().skillcap );
   }
-  case MBR_LUCK:
-    luck( static_cast<short>( value ) );
-    if ( !this->isa( Core::UOBJ_CLASS::CLASS_NPC ) )
-      on_aos_ext_stat_changed();
-    return new BLong( luck() );
-    break;
   case MBR_FOLLOWERSMAX:
   {
     auto val = followers();
@@ -2415,8 +2776,7 @@ BObjectImp* Character::set_script_member( const char* membername, int value )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* Character::script_method_id( const int id, Executor& ex )
@@ -2611,8 +2971,7 @@ BObjectImp* Character::script_method_id( const int id, Executor& ex )
         set_setting( pstr->data(), true );
         return new BLong( 1 );
       }
-      else
-        return new BError( "Mobile doesn't have that privilege" );
+      return new BError( "Mobile doesn't have that privilege" );
     }
     break;
   }
@@ -2668,8 +3027,7 @@ BObjectImp* Character::script_method_id( const int id, Executor& ex )
         cmdlevel( pcmdlevel->cmdlevel, true );
         return new BLong( 1 );
       }
-      else
-        return new BError( "No such command level" );
+      return new BError( "No such command level" );
     }
     break;
   }
@@ -2715,8 +3073,7 @@ BObjectImp* Character::script_method_id( const int id, Executor& ex )
   case MTH_GETGOTTENITEM:
     if ( has_gotten_item() )
       return new Module::EItemRefObjImp( gotten_item() );
-    else
-      return new BError( "Gotten Item nullptr" );
+    return new BError( "Gotten Item nullptr" );
     break;
   case MTH_CLEARGOTTENITEM:
     if ( has_gotten_item() )
@@ -2724,8 +3081,7 @@ BObjectImp* Character::script_method_id( const int id, Executor& ex )
       clear_gotten_item();
       return new BLong( 1 );
     }
-    else
-      return new BError( "No Gotten Item" );
+    return new BError( "No Gotten Item" );
     break;
   case MTH_SETWARMODE:
   {
@@ -2748,8 +3104,7 @@ BObjectImp* Character::script_method_id( const int id, Executor& ex )
         static_cast<Core::UCorpse*>( Core::system_find_item( last_corpse ) );
     if ( corpse_obj != nullptr && !corpse_obj->orphan() )
       return new Module::EItemRefObjImp( corpse_obj );
-    else
-      return new BError( "No corpse was found." );
+    return new BError( "No corpse was found." );
     break;
   }
   case MTH_SET_SWINGTIMER:
@@ -2816,7 +3171,7 @@ BObjectImp* Character::script_method_id( const int id, Executor& ex )
   case MTH_SETFACING:
   {
     int flags = 0;
-    Core::UFACING i_facing;
+    Plib::UFACING i_facing;
 
     if ( ex.hasParams( 2 ) && !ex.getParam( 1, flags, 0, 1 ) )
       return new BError( "Invalid flags for parameter 1" );
@@ -2831,7 +3186,7 @@ BObjectImp* Character::script_method_id( const int id, Executor& ex )
     else if ( param0->isa( BObjectImp::OTLong ) )
     {
       BLong* blong = static_cast<BLong*>( param0 );
-      i_facing = static_cast<Core::UFACING>( blong->value() & PKTIN_02_FACING_MASK );
+      i_facing = static_cast<Plib::UFACING>( blong->value() & PKTIN_02_FACING_MASK );
     }
     else
       return new BError( "Invalid type for parameter 0" );
@@ -2851,11 +3206,9 @@ BObjectImp* Character::script_method_id( const int id, Executor& ex )
       const String* pstr;
       if ( ex.getStringParam( 0, pstr ) )
         return new BLong( client->compareVersion( pstr->getStringRep() ) ? 1 : 0 );
-      else
-        return new BError( "Invalid parameter type" );
+      return new BError( "Invalid parameter type" );
     }
-    else
-      return new BError( "No client attached" );
+    return new BError( "No client attached" );
     break;
   case MTH_SETAGGRESSORTO:
     if ( ex.hasParams( 1 ) )
@@ -2867,11 +3220,9 @@ BObjectImp* Character::script_method_id( const int id, Executor& ex )
         this->make_aggressor_to( chr );
         return new BLong( 1 );
       }
-      else
-        return new BError( "Invalid parameter type" );
+      return new BError( "Invalid parameter type" );
     }
-    else
-      return new BError( "Not enough parameters" );
+    return new BError( "Not enough parameters" );
     break;
   case MTH_SETLAWFULLYDAMAGEDTO:
     if ( ex.hasParams( 1 ) )
@@ -2883,11 +3234,9 @@ BObjectImp* Character::script_method_id( const int id, Executor& ex )
         this->make_lawfullydamaged_to( chr );
         return new BLong( 1 );
       }
-      else
-        return new BError( "Invalid parameter type" );
+      return new BError( "Invalid parameter type" );
     }
-    else
-      return new BError( "Not enough parameters" );
+    return new BError( "Not enough parameters" );
     break;
   case MTH_CLEARAGGRESSORTO:
     if ( ex.hasParams( 1 ) )
@@ -2898,11 +3247,9 @@ BObjectImp* Character::script_method_id( const int id, Executor& ex )
         this->remove_as_aggressor_to( chr );
         return new BLong( 1 );
       }
-      else
-        return new BError( "Invalid parameter type" );
+      return new BError( "Invalid parameter type" );
     }
-    else
-      return new BError( "Not enough parameters" );
+    return new BError( "Not enough parameters" );
     break;
   case MTH_CLEARLAWFULLYDAMAGEDTO:
     if ( ex.hasParams( 1 ) )
@@ -2913,11 +3260,9 @@ BObjectImp* Character::script_method_id( const int id, Executor& ex )
         this->remove_as_lawful_damager( chr );
         return new BLong( 1 );
       }
-      else
-        return new BError( "Invalid parameter type" );
+      return new BError( "Invalid parameter type" );
     }
-    else
-      return new BError( "Not enough parameters" );
+    return new BError( "Not enough parameters" );
     break;
   case MTH_DEAF:
   {
@@ -3027,12 +3372,12 @@ BObjectImp* Character::script_method( const char* methodname, Executor& ex )
   ObjMethod* objmethod = getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
     return this->script_method_id( objmethod->id, ex );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* Character::custom_script_method( const char* methodname, Executor& ex )
 {
+  // TODO uoclient entry deprecated
   if ( Core::networkManager.uoclient_general.method_script != nullptr )
   {
     unsigned PC;
@@ -3041,7 +3386,7 @@ BObjectImp* Character::custom_script_method( const char* methodname, Executor& e
       return Core::networkManager.uoclient_general.method_script->call( PC, make_ref(),
                                                                         ex.fparams );
   }
-  return nullptr;
+  return Core::gamestate.system_hooks.call_script_method( methodname, &ex, this );
 }
 
 ObjArray* Character::GetReportables() const
@@ -3141,23 +3486,20 @@ BObjectImp* NPC::get_script_member_id( const int id ) const
     Character* master = master_.get();
     if ( master != nullptr && !master->orphan() )
       return new Module::EOfflineCharacterRefObjImp( master );
-    else
-      return new BLong( 0 );
+    return new BLong( 0 );
     break;
   }
 
   case MBR_PROCESS:
     if ( ex )
       return new Core::ScriptExObjImp( ex );
-    else
-      return new BError( "No script running" );
+    return new BError( "No script running" );
     break;
 
   case MBR_EVENTMASK:
     if ( ex )
       return new BLong( ex->eventmask );
-    else
-      return new BError( "No script running" );
+    return new BError( "No script running" );
     break;
 
   case MBR_SPEECH_COLOR:
@@ -3190,8 +3532,7 @@ BObjectImp* NPC::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* NPC::set_script_member_id( const int id, const std::string& value )
@@ -3213,8 +3554,7 @@ BObjectImp* NPC::set_script_member( const char* membername, const std::string& v
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* NPC::set_script_member_id( const int id, int value )
@@ -3250,8 +3590,7 @@ BObjectImp* NPC::set_script_member( const char* membername, int value )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* NPC::script_method_id( const int id, Executor& executor )
@@ -3290,8 +3629,7 @@ BObjectImp* NPC::script_method( const char* methodname, Executor& executor )
   ObjMethod* objmethod = getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
     return this->script_method_id( objmethod->id, executor );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* NPC::custom_script_method( const char* methodname, Executor& executor )
@@ -3303,7 +3641,7 @@ BObjectImp* NPC::custom_script_method( const char* methodname, Executor& executo
              methodname, static_cast<unsigned int>( executor.numParams() + 1 ), PC ) )
       return template_.method_script->call( PC, make_ref(), executor.fparams );
   }
-  return nullptr;
+  return Core::gamestate.system_hooks.call_script_method( methodname, &executor, this );
 }
 }  // namespace Mobile
 namespace Core
@@ -3331,8 +3669,7 @@ BObjectImp* ULockable::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* ULockable::set_script_member_id( const int id, int value )
@@ -3355,8 +3692,7 @@ BObjectImp* ULockable::set_script_member( const char* membername, int value )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UContainer::get_script_member_id( const int id ) const
@@ -3388,8 +3724,7 @@ BObjectImp* UContainer::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UContainer::set_script_member_id( const int id, int value )
@@ -3422,8 +3757,7 @@ BObjectImp* UContainer::set_script_member( const char* membername, int value )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UCorpse::get_script_member_id( const int id ) const
@@ -3450,8 +3784,7 @@ BObjectImp* UCorpse::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* Spellbook::script_method_id( const int id, Executor& ex )
@@ -3541,8 +3874,7 @@ BObjectImp* Spellbook::script_method( const char* methodname, Executor& ex )
   ObjMethod* objmethod = getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
     return this->script_method_id( objmethod->id, ex );
-  else
-    return nullptr;
+  return nullptr;
 }
 }  // namespace Core
 namespace Multi
@@ -3572,8 +3904,7 @@ BObjectImp* UBoat::get_script_member_id( const int id ) const
     Item* cp = tillerman;
     if ( cp != nullptr )
       return new Module::EItemRefObjImp( cp );
-    else
-      return new BError( std::string( "This ship doesn't have that component" ) );
+    return new BError( std::string( "This ship doesn't have that component" ) );
     break;
   }
   case MBR_PORTPLANK:
@@ -3581,8 +3912,7 @@ BObjectImp* UBoat::get_script_member_id( const int id ) const
     Item* cp = portplank;
     if ( cp != nullptr )
       return new Module::EItemRefObjImp( cp );
-    else
-      return new BError( std::string( "This ship doesn't have that component" ) );
+    return new BError( std::string( "This ship doesn't have that component" ) );
     break;
   }
   case MBR_STARBOARDPLANK:
@@ -3590,8 +3920,7 @@ BObjectImp* UBoat::get_script_member_id( const int id ) const
     Item* cp = starboardplank;
     if ( cp != nullptr )
       return new Module::EItemRefObjImp( cp );
-    else
-      return new BError( std::string( "This ship doesn't have that component" ) );
+    return new BError( std::string( "This ship doesn't have that component" ) );
     break;
   }
   case MBR_HOLD:
@@ -3599,8 +3928,7 @@ BObjectImp* UBoat::get_script_member_id( const int id ) const
     Item* cp = hold;
     if ( cp != nullptr )
       return new Module::EItemRefObjImp( cp );
-    else
-      return new BError( std::string( "This ship doesn't have that component" ) );
+    return new BError( std::string( "This ship doesn't have that component" ) );
     break;
   }
   case MBR_ROPE:
@@ -3658,8 +3986,7 @@ BObjectImp* UBoat::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UBoat::script_method_id( const int id, Executor& ex )
@@ -3785,8 +4112,7 @@ BObjectImp* UBoat::script_method( const char* methodname, Executor& ex )
   ObjMethod* objmethod = getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
     return this->script_method_id( objmethod->id, ex );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UPlank::get_script_member_id( const int id ) const
@@ -3796,8 +4122,7 @@ BObjectImp* UPlank::get_script_member_id( const int id ) const
   case MBR_MULTI:
     if ( boat_.get() )
       return new Module::EUBoatRefObjImp( boat_.get() );
-    else
-      return new BError( "No boat attached" );
+    return new BError( "No boat attached" );
     break;
   }
   return base::get_script_member_id( id );
@@ -3809,8 +4134,7 @@ BObjectImp* UPlank::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return base::get_script_member( membername );
+  return base::get_script_member( membername );
 }
 }  // namespace Multi
 namespace Core
@@ -3859,8 +4183,7 @@ BObjectImp* Map::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* Map::set_script_member_id( const int id, int value )
@@ -3895,8 +4218,7 @@ BObjectImp* Map::set_script_member( const char* membername, int value )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UObject::script_method_id( const int id, Executor& ex )
@@ -4004,8 +4326,7 @@ BObjectImp* UObject::custom_script_method( const char* methodname, Executor& ex 
   ObjMethod* objmethod = getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
     return this->script_method_id( objmethod->id, ex );
-  else
-    return nullptr;
+  return Core::gamestate.system_hooks.call_script_method( methodname, &ex, this );
 }
 
 BObjectImp* UDoor::get_script_member_id( const int id ) const
@@ -4029,8 +4350,7 @@ BObjectImp* UDoor::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UDoor::script_method_id( const int id, Executor& ex )
@@ -4061,8 +4381,7 @@ BObjectImp* UDoor::script_method( const char* methodname, Executor& ex )
   ObjMethod* objmethod = getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
     return this->script_method_id( objmethod->id, ex );
-  else
-    return nullptr;
+  return nullptr;
 }
 }  // namespace Core
 namespace Items
@@ -4089,8 +4408,7 @@ BObjectImp* Equipment::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* Equipment::set_script_member_id( const int id, int value )
@@ -4112,8 +4430,7 @@ BObjectImp* Equipment::set_script_member( const char* membername, int value )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* Equipment::set_script_member_id_double( const int id, double value )
@@ -4135,8 +4452,7 @@ BObjectImp* Equipment::set_script_member_double( const char* membername, double 
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id_double( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 
@@ -4169,8 +4485,7 @@ BObjectImp* UWeapon::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UWeapon::set_script_member_id( const int id, const std::string& value )
@@ -4193,8 +4508,7 @@ BObjectImp* UWeapon::set_script_member( const char* membername, const std::strin
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UWeapon::set_script_member_id( const int id, int value )
@@ -4228,8 +4542,7 @@ BObjectImp* UWeapon::set_script_member( const char* membername, int value )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UWeapon::set_script_member_id_double( const int id, double value )
@@ -4247,8 +4560,7 @@ BObjectImp* UWeapon::set_script_member_double( const char* membername, double va
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id_double( objmember->id, value );
-  else
-    return base::set_script_member_double( membername, value );
+  return base::set_script_member_double( membername, value );
 }
 
 BObjectImp* UArmor::get_script_member_id( const int id ) const
@@ -4281,8 +4593,7 @@ BObjectImp* UArmor::get_script_member( const char* membername ) const
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_script_member_id( objmember->id );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UArmor::set_script_member_id( const int id, const std::string& value )
@@ -4305,8 +4616,7 @@ BObjectImp* UArmor::set_script_member( const char* membername, const std::string
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 
 BObjectImp* UArmor::set_script_member_id( const int id, int value )
@@ -4339,8 +4649,7 @@ BObjectImp* UArmor::set_script_member( const char* membername, int value )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_script_member_id( objmember->id, value );
-  else
-    return nullptr;
+  return nullptr;
 }
 }  // namespace Items
 namespace Module
@@ -4361,8 +4670,7 @@ BObjectImp* EClientRefObjImp::copy() const
 {
   if ( value().exists() )
     return value()->make_ref();
-  else
-    return new BError( "Client is disconnected" );
+  return new BError( "Client is disconnected" );
 }
 
 bool EClientRefObjImp::isTrue() const
@@ -4385,16 +4693,13 @@ bool EClientRefObjImp::operator==( const BObjectImp& objimp ) const
       if ( clientref_imp->value().exists() && value().exists() &&
            ( clientref_imp->value()->chr != nullptr ) && ( value()->chr != nullptr ) )
         return ( clientref_imp->value()->chr->serial == value()->chr->serial );
-      else
-        return false;
-    }
-    else
       return false;
+    }
+    return false;
   }
   else if ( objimp.isa( Bscript::BObjectImp::OTBoolean ) )
     return isTrue() == static_cast<const Bscript::BBoolean&>( objimp ).isTrue();
-  else
-    return false;
+  return false;
 }
 
 BObjectRef EClientRefObjImp::get_member_id( const int id )
@@ -4407,8 +4712,7 @@ BObjectRef EClientRefObjImp::get_member_id( const int id )
   case MBR_ACCTNAME:
     if ( obj_->acct != nullptr )
       return BObjectRef( new String( obj_->acct->name() ) );
-    else
-      return BObjectRef( new BError( "Not attached to an account" ) );
+    return BObjectRef( new BError( "Not attached to an account" ) );
     break;
   case MBR_IP:
     return BObjectRef( new String( obj_->ipaddrAsString() ) );
@@ -4457,8 +4761,7 @@ BObjectRef EClientRefObjImp::get_member( const char* membername )
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->get_member_id( objmember->id );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectRef EClientRefObjImp::set_member( const char* membername, BObjectImp* value, bool copy )
@@ -4468,8 +4771,7 @@ BObjectRef EClientRefObjImp::set_member( const char* membername, BObjectImp* val
   ObjMember* objmember = getKnownObjMember( membername );
   if ( objmember != nullptr )
     return this->set_member_id( objmember->id, value, copy );
-  else
-    return BObjectRef( UninitObject::create() );
+  return BObjectRef( UninitObject::create() );
 }
 
 BObjectRef EClientRefObjImp::set_member_id( const int /*id*/, BObjectImp* /*value*/, bool /*copy*/ )
@@ -4483,17 +4785,25 @@ BObjectImp* EClientRefObjImp::call_method( const char* methodname, Executor& ex 
 {
   if ( !obj_.exists() || !obj_->isConnected() )
     return new BError( "Client not ready or disconnected" );
+  bool forcebuiltin{Executor::builtinMethodForced( methodname )};
   ObjMethod* objmethod = getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
-    return this->call_method_id( objmethod->id, ex );
-  return nullptr;
+    return this->call_method_id( objmethod->id, ex, forcebuiltin );
+  return Core::gamestate.system_hooks.call_script_method( methodname, &ex, this );
 }
 
-BObjectImp* EClientRefObjImp::call_method_id( const int id, Executor& ex, bool /*forcebuiltin*/ )
+BObjectImp* EClientRefObjImp::call_method_id( const int id, Executor& ex, bool forcebuiltin )
 {
   if ( !obj_.exists() || !obj_->isConnected() )
     return new BError( "Client not ready or disconnected" );
 
+  ObjMethod* mth = getObjMethod( id );
+  if ( mth->overridden && !forcebuiltin )
+  {
+    auto* imp = Core::gamestate.system_hooks.call_script_method( mth->code, &ex, this );
+    if ( imp )
+      return imp;
+  }
   switch ( id )
   {
   case MTH_COMPAREVERSION:
@@ -4634,7 +4944,7 @@ ItemGivenEvent::~ItemGivenEvent()
   if ( item->orphan() || cont->orphan() || chr->orphan() )
     return;
 
-  if ( item->container == cont && Clib::decint( given_time_ ) == Clib::decint( gts ) )
+  if ( item->container == cont && Clib::tostring( given_time_ ) == Clib::tostring( gts ) )
   {
     Core::UContainer* backpack = chr->backpack();
     if ( backpack != nullptr && !chr->dead() )

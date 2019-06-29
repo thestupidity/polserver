@@ -16,8 +16,8 @@
 #include "../network/msghandl.h"
 #include "../network/packethooks.h"
 #include "../network/packetinterface.h"
+#include "../network/sockio.h"
 #include "../servdesc.h"
-#include "../sockio.h"
 #include "../sqlscrobj.h"
 #include "../uoclient.h"
 
@@ -55,8 +55,7 @@ NetworkManager::NetworkManager()
                                                                         // activate by default?
                                                                         // maybe add a cfg entry for
                                                                         // max number of threads
-      banned_ips(),
-      polsocket()
+      banned_ips()
 {
   memset( ipaddr_str, 0, sizeof ipaddr_str );
   memset( lanaddr_str, 0, sizeof lanaddr_str );
@@ -117,15 +116,19 @@ void NetworkManager::deinialize()
   Clib::delete_all( auxservices );
   auxthreadpool.reset();
   banned_ips.clear();
-#ifdef _WIN32
-  closesocket( polsocket.listen_socket );
-#else
-  close( polsocket.listen_socket );  // shutdown( polsocket.listen_socket, 2 ); ??
-#endif
+
   Network::deinit_sockets_library();
   Network::clean_packethooks();
   curl_global_cleanup();
   uoclient_general.deinitialize();
+}
+
+size_t NetworkManager::getNumberOfLoginClients() const
+{
+  size_t no = 0;
+  for ( const auto& ls : uoclient_listeners )
+    no += ls.login_clients.size();
+  return no;
 }
 
 NetworkManager::Memory NetworkManager::estimateSize() const
@@ -191,5 +194,5 @@ NetworkManager::Memory NetworkManager::estimateSize() const
 
   return usage;
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol

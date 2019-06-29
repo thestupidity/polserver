@@ -22,12 +22,11 @@
 #include "../network/client.h"
 #include "../network/packethelper.h"
 #include "../network/packets.h"
-#include "../pktboth.h"
-#include "../pktdef.h"
+#include "../network/pktboth.h"
+#include "../network/pktdef.h"
 #include "../ufunc.h"
 #include "../unicode.h"
 #include "../uoexec.h"
-#include "osmod.h"
 
 namespace Pol
 {
@@ -114,13 +113,13 @@ void handle_unicode_prompt( Client* client, Core::PKTBI_C2* msg )
   }
 
   uniemod->exec.ValueStack.back().set( valstack );  // error or struct, regardless.
-  uniemod->uoexec.os_module->revive();
+  uniemod->uoexec.revive();
   uniemod->prompt_chr = nullptr;
   client->gd->prompt_uniemod = nullptr;
 }
 
 //////////////////////////////////////////////////////////////////////////
-}
+}  // namespace Core
 namespace Bscript
 {
 using namespace Module;
@@ -133,7 +132,7 @@ TmplExecutorModule<UnicodeExecutorModule>::FunctionTable
         {"RequestInputUC", &UnicodeExecutorModule::mf_RequestInputUC},
         {"SendSysMessageUC", &UnicodeExecutorModule::mf_SendSysMessageUC},
         {"SendTextEntryGumpUC", &UnicodeExecutorModule::mf_SendTextEntryGumpUC}};
-}
+}  // namespace Bscript
 namespace Module
 {
 using namespace Bscript;
@@ -340,5 +339,10 @@ BObjectImp* UnicodeExecutorModule::mf_SendTextEntryGumpUC()
 
   return new BError( "Function not implimented" );
 }
+
+size_t UnicodeExecutorModule::sizeEstimate() const
+{
+  return sizeof( *this );
 }
-}
+}  // namespace Module
+}  // namespace Pol

@@ -26,12 +26,15 @@
 #include <assert.h>
 #include <cstddef>
 
+#include "../bscript/executor.h"
 #include "../clib/cfgelem.h"
 #include "../clib/logfacility.h"
 #include "../clib/passert.h"
 #include "../clib/random.h"
 #include "../clib/streamsaver.h"
+#include "../plib/uconst.h"
 #include "globals/state.h"
+#include "globals/uvars.h"
 #include "item/itemdesc.h"
 #include "mobile/charactr.h"
 #include "network/client.h"
@@ -39,7 +42,7 @@
 #include "scrdef.h"
 #include "scrsched.h"
 #include "statmsg.h"
-#include "uconst.h"
+#include "syshookscript.h"
 #include "ufunc.h"
 #include "umanip.h"
 #include "uobject.h"
@@ -194,7 +197,11 @@ bool UContainer::can_add_to_slot( u8& slotIndex )
 void UContainer::add( Items::Item* item )
 {
   // passert( can_add( *item ) );
-
+  if ( orphan() )
+  {
+    POLLOG_ERROR << "Trying to add item to orphan container!\n";
+    passert_always( 0 );  // TODO remove once found
+  }
   INC_PROFILEVAR( container_adds );
   item->realm = realm;
   item->container = this;
@@ -321,6 +328,11 @@ void UContainer::enumerate_contents( Bscript::ObjArray* arr, int flags )
 
 void UContainer::extract( Contents& cnt )
 {
+  if ( orphan() )
+  {
+    POLLOG_ERROR << "Trying to add item to orphan container!\n";
+    passert_always( 0 );  // TODO remove once found
+  }
   contents_.swap( cnt );
   add_bulk( -static_cast<int>( held_item_count_ ), -static_cast<int>( held_weight_ ) );
 }
@@ -347,6 +359,11 @@ void UContainer::swap( UContainer& cont )
   add_bulk( item_count_diff, weight_diff );
   cont.add_bulk( -item_count_diff, -weight_diff );
 
+  if ( orphan() )
+  {
+    POLLOG_ERROR << "Trying to add item to orphan container!\n";
+    passert_always( 0 );  // TODO remove once found
+  }
   contents_.swap( cont.contents_ );
 }
 
@@ -969,6 +986,15 @@ void UContainer::no_drop_exception( bool newvalue )
 bool UContainer::default_no_drop_exception() const
 {
   return desc.no_drop_exception;
+}
+
+bool UContainer::get_method_hook( const char* methodname, Bscript::Executor* ex,
+                                  ExportScript** hook, unsigned int* PC ) const
+{
+  if ( gamestate.system_hooks.get_method_hook( gamestate.system_hooks.container_method_script.get(),
+                                               methodname, ex, hook, PC ) )
+    return true;
+  return base::get_method_hook( methodname, ex, hook, PC );
 }
 }  // namespace Core
 }  // namespace Pol

@@ -2,8 +2,6 @@
 #define GLOBALS_STATE_H
 
 #include <atomic>
-#include <boost/noncopyable.hpp>
-#include <time.h>
 
 #include "../../clib/clib.h"
 #include "../../clib/rawtypes.h"
@@ -21,25 +19,22 @@ const u32 ITEMSERIAL_START = 0x40000000Lu;
 const u32 ITEMSERIAL_END = 0x7FffFFffLu;
 
 
-class StateManager : boost::noncopyable
+class StateManager
 {
 public:
   StateManager();
-  ~StateManager();
+  ~StateManager() = default;
+  StateManager( const StateManager& ) = delete;
+  StateManager& operator=( const StateManager& ) = delete;
   size_t estimateSize() const;
 
   void deinitialize();
 
   const char* last_checkpoint;
 
-  size_t cycles_per_decay_worldzone;
-  size_t cycles_until_decay_worldzone;
-
   bool gflag_enforce_container_limits;
   bool gflag_in_system_load;
   bool gflag_in_system_startup;
-
-  std::atomic<clock_t> polclock_paused_at;
 
   unsigned int stored_last_item_serial;
   unsigned int stored_last_char_serial;
@@ -65,6 +60,6 @@ public:
 };
 
 extern StateManager stateManager;
-}
-}
+}  // namespace Core
+}  // namespace Pol
 #endif

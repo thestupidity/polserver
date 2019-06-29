@@ -13,6 +13,7 @@
 
 #include "uimport.h"
 
+#include <atomic>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
@@ -33,6 +34,7 @@
 #include "../clib/rawtypes.h"
 #include "../clib/threadhelp.h"
 #include "../clib/timer.h"
+#include "../plib/poltype.h"
 #include "../plib/systemstate.h"
 #include "accounts/accounts.h"
 #include "containr.h"
@@ -51,7 +53,6 @@
 #include "multi/house.h"
 #include "multi/multi.h"
 #include "objecthash.h"
-#include "poltype.h"
 #include "polvar.h"
 #include "resource.h"
 #include "savedata.h"
@@ -69,7 +70,7 @@ namespace Module
 void commit_datastore();
 void read_datastore_dat();
 void write_datastore( Clib::StreamWriter& sw );
-}
+}  // namespace Module
 namespace Core
 {
 void read_party_dat();
@@ -357,7 +358,7 @@ void read_multi( Clib::ConfigElem& elem )
 std::string elapsed( clock_t start, clock_t end )
 {
   size_t ms = static_cast<size_t>( ( end - start ) * 1000.0 / CLOCKS_PER_SEC );
-  return Clib::decint( ms ) + " ms";
+  return Clib::tostring( ms ) + " ms";
 }
 
 void slurp( const char* filename, const char* tags, int sysfind_flags )
@@ -1043,10 +1044,10 @@ int write_data( unsigned int& dirty_writes, unsigned int& clean_writes, long lon
   auto critical_promise = std::make_shared<std::promise<bool>>();
   auto critical_future = critical_promise->get_future();
   SaveContext::finished = std::async( std::launch::async, [&, critical_promise]() -> bool {
+    std::atomic<bool> result( true );
     try
     {
       SaveContext sc;
-      bool result = true;
       std::vector<std::future<bool>> critical_parts;
       critical_parts.push_back( gamestate.task_thread_pool.checked_push( [&]() {
         try
@@ -1181,26 +1182,38 @@ int write_data( unsigned int& dirty_writes, unsigned int& clean_writes, long lon
         task.wait();
 
       critical_promise->set_value( result );  // critical part end
+      // TODO: since promise can only be set one time move it into a method with a dedicated try
+      // block, now when in theory an upper part fails the promise gets never set
     }  // deconstructor of the SaveContext flushes and joins the queues
+    catch ( std::ios_base::failure& e )
+    {
+      POLLOG_ERROR << "failed to save datafiles! " << e.what() << ":" << std::strerror( errno )
+                   << "\n";
+      Clib::force_backtrace();
+      result = false;
+    }
     catch ( ... )
     {
       POLLOG_ERROR << "failed to save datafiles!\n";
       Clib::force_backtrace();
-      critical_promise->set_value( false );  // critical part end
+      result = false;
     }
-    commit( "pol" );
-    commit( "objects" );
-    commit( "pcs" );
-    commit( "pcequip" );
-    commit( "npcs" );
-    commit( "npcequip" );
-    commit( "items" );
-    commit( "multis" );
-    commit( "storage" );
-    commit( "resource" );
-    commit( "guilds" );
-    commit( "datastore" );
-    commit( "parties" );
+    if ( result )
+    {
+      commit( "pol" );
+      commit( "objects" );
+      commit( "pcs" );
+      commit( "pcequip" );
+      commit( "npcs" );
+      commit( "npcequip" );
+      commit( "items" );
+      commit( "multis" );
+      commit( "storage" );
+      commit( "resource" );
+      commit( "guilds" );
+      commit( "datastore" );
+      commit( "parties" );
+    }
     return true;
   } );
   critical_future.wait();  // wait for end of critical part
@@ -1415,5 +1428,5 @@ void read_gameservers()
   if ( networkManager.servers.empty() )
     throw std::runtime_error( "There must be at least one GameServer in SERVERS.CFG." );
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol

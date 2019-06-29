@@ -17,15 +17,16 @@
 
 #include "../../bscript/bobject.h"
 #include "../../clib/rawtypes.h"
-#include "../poltype.h"
+#include "../../plib/poltype.h"
+#include "../../plib/uconst.h"
 #include "../reftypes.h"
-#include "../uconst.h"
 #include "multi.h"
 
 namespace Pol
 {
 namespace Bscript
 {
+class BObjectImp;
 class Executor;
 }  // namespace Bscript
 namespace Clib
@@ -36,6 +37,7 @@ class StreamWriter;
 namespace Core
 {
 class UObject;
+class ExportScript;
 }  // namespace Core
 namespace Items
 {
@@ -50,14 +52,6 @@ namespace Network
 {
 class Client;
 }  // namespace Network
-}  // namespace Pol
-
-namespace Pol
-{
-namespace Bscript
-{
-class BObjectImp;
-}
 namespace Realms
 {
 class Realm;
@@ -66,6 +60,10 @@ namespace Module
 {
 class EUBoatRefObjImp;
 }
+}  // namespace Pol
+
+namespace Pol
+{
 namespace Multi
 {
 class MultiDef;
@@ -127,7 +125,7 @@ public:
   virtual ~UBoat(){};
   virtual size_t estimatedSize() const override;
 
-  bool move( Core::UFACING dir, u8 speed, bool relative );
+  bool move( Plib::UFACING dir, u8 speed, bool relative );
   bool move_xy( unsigned short x, unsigned short y, int flags, Realms::Realm* oldrealm );
 
   enum RELATIVE_DIR
@@ -141,11 +139,11 @@ public:
 
   virtual void register_object( Core::UObject* obj ) override;
   virtual void unregister_object( Core::UObject* obj ) override;
-  Core::UFACING boat_facing() const;
+  Plib::UFACING boat_facing() const;
 
-  void send_smooth_move( Network::Client* client, Core::UFACING move_dir, u8 speed, u16 newx,
+  void send_smooth_move( Network::Client* client, Plib::UFACING move_dir, u8 speed, u16 newx,
                          u16 newy, bool relative );
-  void send_smooth_move_to_inrange( Core::UFACING move_dir, u8 speed, u16 newx, u16 newy,
+  void send_smooth_move_to_inrange( Plib::UFACING move_dir, u8 speed, u16 newx, u16 newy,
                                     bool relative );
   void send_display_boat( Network::Client* client );
   void send_display_boat_to_inrange( u16 oldx = USHRT_MAX, u16 oldy = USHRT_MAX );
@@ -167,6 +165,8 @@ public:
                                                s8 z, Realms::Realm* realm, int flags );
 
   virtual Bscript::BObjectImp* make_ref() override;
+  virtual bool get_method_hook( const char* methodname, Bscript::Executor* ex,
+                                Core::ExportScript** hook, unsigned int* PC ) const override;
   static bool navigable( const MultiDef&, unsigned short x, unsigned short y, short z,
                          Realms::Realm* realm );
   void realm_changed();
@@ -182,7 +182,7 @@ public:
   Core::ItemRef mountpiece;
 
 protected:
-  void move_travellers( enum Core::UFACING move_dir, const BoatContext& oldlocation,
+  void move_travellers( enum Plib::UFACING move_dir, const BoatContext& oldlocation,
                         unsigned short x = USHRT_MAX, unsigned short y = USHRT_MAX,
                         Realms::Realm* oldrealm = nullptr );
   void turn_travellers( RELATIVE_DIR dir, const BoatContext& oldlocation );
@@ -253,6 +253,6 @@ Bscript::BObjectImp* destroy_boat( UBoat* boat );
 unsigned int get_component_objtype( unsigned char type );
 bool BoatShapeExists( u16 multiid );
 void clean_boatshapes();
-}
-}
+}  // namespace Multi
+}  // namespace Pol
 #endif

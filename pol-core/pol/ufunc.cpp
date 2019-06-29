@@ -71,9 +71,9 @@
 #include "network/client.h"
 #include "network/packetdefs.h"
 #include "network/packethelper.h"
+#include "network/pktdef.h"
 #include "objecthash.h"
 #include "objtype.h"
-#include "pktdef.h"
 #include "polcfg.h"
 #include "polclass.h"
 #include "realms/realm.h"
@@ -1162,7 +1162,7 @@ void send_sysmessage( Network::Client* client, const char* text, unsigned short 
   msg->offset += 2;
   msg->Write<u32>( 0x01010101u );
   msg->Write<u16>( 0x0101u );
-  msg->Write<u8>( TEXTTYPE_NORMAL );
+  msg->Write<u8>( Plib::TEXTTYPE_NORMAL );
   msg->WriteFlipped<u16>( color );
   msg->WriteFlipped<u16>( font );
   msg->Write( "System", 30 );
@@ -1188,7 +1188,7 @@ void send_sysmessage( Network::Client* client, const u16* wtext, const char lang
   msg->offset += 2;
   msg->Write<u32>( 0x01010101u );
   msg->Write<u16>( 0x0101u );
-  msg->Write<u8>( TEXTTYPE_NORMAL );
+  msg->Write<u8>( Plib::TEXTTYPE_NORMAL );
   msg->WriteFlipped<u16>( color );
   msg->WriteFlipped<u16>( font );
   msg->Write( lang, 4 );
@@ -1251,7 +1251,7 @@ void send_nametext( Client* client, const Character* chr, const std::string& str
   msg->offset += 2;
   msg->Write<u32>( chr->serial_ext );
   msg->Write<u16>( 0x0101u );
-  msg->Write<u8>( TEXTTYPE_YOU_SEE );
+  msg->Write<u8>( Plib::TEXTTYPE_YOU_SEE );
   msg->WriteFlipped<u16>( chr->name_color( client->chr ) );  // 0x03B2
   msg->WriteFlipped<u16>( 3u );
   msg->Write( str.c_str(), 30 );
@@ -1273,7 +1273,7 @@ bool say_above( const UObject* obj, const char* text, unsigned short font, unsig
   msg->offset += 2;
   msg->Write<u32>( obj->serial_ext );
   msg->WriteFlipped<u16>( obj->graphic );
-  msg->Write<u8>( TEXTTYPE_NORMAL );
+  msg->Write<u8>( Plib::TEXTTYPE_NORMAL );
   msg->WriteFlipped<u16>( color );
   msg->WriteFlipped<u16>( font );
   switch ( journal_print )
@@ -1309,7 +1309,7 @@ bool say_above( const UObject* obj, const u16* wtext, const char lang[4], unsign
   msg->offset += 2;
   msg->Write<u32>( obj->serial_ext );
   msg->WriteFlipped<u16>( obj->graphic );
-  msg->Write<u8>( TEXTTYPE_NORMAL );
+  msg->Write<u8>( Plib::TEXTTYPE_NORMAL );
   msg->WriteFlipped<u16>( color );
   msg->WriteFlipped<u16>( font );
   msg->Write( lang, 4 );
@@ -1345,7 +1345,7 @@ bool private_say_above( Character* chr, const UObject* obj, const char* text, un
   msg->offset += 2;
   msg->Write<u32>( obj->serial_ext );
   msg->WriteFlipped<u16>( obj->graphic );
-  msg->Write<u8>( TEXTTYPE_NORMAL );
+  msg->Write<u8>( Plib::TEXTTYPE_NORMAL );
   msg->WriteFlipped<u16>( color );
   msg->WriteFlipped<u16>( font );
   switch ( journal_print )
@@ -1382,7 +1382,7 @@ bool private_say_above( Character* chr, const UObject* obj, const u16* wtext, co
   msg->offset += 2;
   msg->Write<u32>( obj->serial_ext );
   msg->WriteFlipped<u16>( obj->graphic );
-  msg->Write<u8>( TEXTTYPE_NORMAL );
+  msg->Write<u8>( Plib::TEXTTYPE_NORMAL );
   msg->WriteFlipped<u16>( color );
   msg->WriteFlipped<u16>( font );
   msg->Write( lang, 4 );
@@ -1417,7 +1417,7 @@ bool private_say_above_ex( Character* chr, const UObject* obj, const char* text,
   msg->offset += 2;
   msg->Write<u32>( obj->serial_ext );
   msg->WriteFlipped<u16>( obj->graphic );
-  msg->Write<u8>( TEXTTYPE_NORMAL );
+  msg->Write<u8>( Plib::TEXTTYPE_NORMAL );
   msg->WriteFlipped<u16>( color );
   msg->WriteFlipped<u16>( 3u );
   msg->Write( obj->description().c_str(), 30 );
@@ -1438,7 +1438,7 @@ void send_objdesc( Client* client, Item* item )
   msg->offset += 2;
   msg->Write<u32>( item->serial_ext );
   msg->WriteFlipped<u16>( item->graphic );
-  msg->Write<u8>( TEXTTYPE_YOU_SEE );
+  msg->Write<u8>( Plib::TEXTTYPE_YOU_SEE );
   msg->WriteFlipped<u16>( 0x03B2u );
   msg->WriteFlipped<u16>( 3u );
   msg->Write( "System", 30 );
@@ -1605,7 +1605,7 @@ void subtract_amount_from_item( Item* item, unsigned short amount )
 }
 
 
-void move_item( Item* item, UFACING facing )
+void move_item( Item* item, Plib::UFACING facing )
 {
   u16 oldx = item->x;
   u16 oldy = item->y;

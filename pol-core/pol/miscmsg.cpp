@@ -26,7 +26,6 @@
 #include <ctype.h>
 #include <string>
 
-#include <format/format.h>
 #include "../bscript/eprog.h"
 #include "../clib/clib_endian.h"
 #include "../clib/fdump.h"
@@ -35,11 +34,7 @@
 #include "../clib/refptr.h"
 #include "../clib/stlutil.h"
 #include "../plib/systemstate.h"
-#include "realms/realm.h"
-#include "polclass.h"
-#include "module/uomod.h"
-#include "module/osmod.h"
-#include "uoexec.h"
+#include "../plib/uconst.h"
 #include "accounts/account.h"
 #include "cmbtcfg.h"
 #include "fnsearch.h"
@@ -51,20 +46,21 @@
 #include "multi/customhouses.h"
 #include "multi/multi.h"
 #include "network/client.h"
+#include "network/clientio.h"
 #include "network/packethelper.h"
 #include "network/packets.h"
-#include "pktboth.h"
-#include "pktdef.h"
-#include "pktin.h"
+#include "network/pktboth.h"
+#include "network/pktdef.h"
+#include "network/pktin.h"
+#include "network/sockio.h"
 #include "scrstore.h"
-#include "sockio.h"
 #include "spells.h"
 #include "tooltips.h"
-#include "uconst.h"
 #include "ufunc.h"
 #include "unicode.h"
 #include "uobject.h"
 #include "uoscrobj.h"
+#include <format/format.h>
 
 namespace Pol
 {
@@ -107,6 +103,11 @@ void handle_mode_set( Client* client, PKTBI_72* msg )
   transmit( client, msg, sizeof *msg );
 
   client->chr->set_warmode( msg_warmode );
+}
+
+void handle_keep_alive( Network::Client* client, PKTBI_73* msg )
+{
+  transmit( client, msg, sizeof *msg );
 }
 
 void handle_rename_char( Client* client, PKTIN_75* msg )
@@ -367,10 +368,10 @@ void handle_msg_BF( Client* client, PKTBI_BF* msg )
     return;
     break;
   case PKTBI_BF::TYPE_TOGGLE_FLYING:
-    if ( client->chr->race == RACE_GARGOYLE )
+    if ( client->chr->race == Plib::RACE_GARGOYLE )
     {
       // FIXME: add checks if its possible to stand with new movemode
-      client->chr->movemode = ( MOVEMODE )( client->chr->movemode ^ MOVEMODE_FLY );
+      client->chr->movemode = ( Plib::MOVEMODE )( client->chr->movemode ^ Plib::MOVEMODE_FLY );
       send_move_mobile_to_nearby_cansee( client->chr );
       send_goxyz( client, client->chr );
     }
@@ -679,5 +680,5 @@ void OnChatButton( Client* client )
     client->chr->start_script( prog.get(), false );
   }
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol

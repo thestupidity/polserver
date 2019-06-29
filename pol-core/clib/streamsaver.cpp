@@ -13,7 +13,6 @@ const std::size_t flush_limit = 10000;  // 500;
 
 /// BaseClass implements only writer operator logic
 StreamWriter::StreamWriter() : _writer( new fmt::Writer ) {}
-StreamWriter::~StreamWriter() = default;
 
 fmt::Writer& StreamWriter::operator()()
 {
@@ -64,7 +63,7 @@ OFStreamWriter::~OFStreamWriter()
 void OFStreamWriter::init( const std::string& filepath )
 {
   _stream->exceptions( std::ios_base::failbit | std::ios_base::badbit );
-  _stream->open( filepath.c_str(), std::ios::out );
+  _stream->open( filepath.c_str(), std::ios::out | std::ios::trunc );
   _stream_name = filepath;
 }
 
@@ -203,5 +202,5 @@ void ThreadedOFStreamWriter::flush_file()
     _stream->close();
   }
 }
-}
-}
+}  // namespace Clib
+}  // namespace Pol

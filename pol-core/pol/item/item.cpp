@@ -16,17 +16,19 @@
 
 #include "../../bscript/berror.h"
 #include "../../bscript/eprog.h"
+#include "../../bscript/executor.h"
 #include "../../clib/cfgelem.h"
 #include "../../clib/passert.h"
 #include "../../clib/refptr.h"
 #include "../../clib/streamsaver.h"
+#include "../../plib/clidata.h"
 #include "../../plib/mapcell.h"
 #include "../../plib/systemstate.h"
-#include "../clidata.h"
 #include "../containr.h"
 #include "../gameclck.h"
 #include "../globals/uvars.h"
 #include "../mobile/charactr.h"
+#include "../module/uomod.h"
 #include "../network/client.h"
 #include "../objtype.h"
 #include "../polcfg.h"
@@ -35,6 +37,7 @@
 #include "../scrdef.h"
 #include "../scrsched.h"
 #include "../scrstore.h"
+#include "../syshookscript.h"
 #include "../tooltips.h"
 #include "../ufunc.h"
 #include "../uoscrobj.h"
@@ -99,6 +102,21 @@ Item* Item::clone() const
   item->energy_damage( energy_damage() );
   item->poison_damage( poison_damage() );
   item->physical_damage( physical_damage() );
+  item->lower_reagent_cost( lower_reagent_cost() );
+  item->spell_damage_increase( spell_damage_increase() );
+  item->faster_casting( faster_casting() );
+  item->faster_cast_recovery( faster_cast_recovery() );
+  item->defence_increase( defence_increase() );
+  item->defence_increase_cap( defence_increase_cap() );
+  item->lower_mana_cost( lower_mana_cost() );
+  item->hit_chance( hit_chance() );
+  item->fire_resist_cap( fire_resist_cap() );
+  item->cold_resist_cap( cold_resist_cap() );
+  item->energy_resist_cap( energy_resist_cap() );
+  item->poison_resist_cap( poison_resist_cap() );
+  item->physical_resist_cap( physical_resist_cap() );
+  item->luck( luck() );
+
 
   item->maxhp_mod( maxhp_mod() );
   item->name_suffix( name_suffix() );
@@ -118,7 +136,7 @@ std::string Item::name() const
     const ItemDesc& id = this->itemdesc();
 
     if ( id.desc.get().empty() )
-      return Core::tile_desc( graphic );
+      return Plib::tile_desc( graphic );
     else
       return id.desc;
   }
@@ -159,12 +177,12 @@ std::string Item::description() const
     const ItemDesc& id = this->itemdesc();
     if ( id.desc.get().empty() )
     {
-      return Core::format_description( Core::tile_flags( graphic ), Core::tile_desc( graphic ),
+      return Core::format_description( Plib::tile_flags( graphic ), Plib::tile_desc( graphic ),
                                        amount_, suffix );
     }
     else
     {
-      return Core::format_description( Core::tile_flags( graphic ), id.desc, amount_, suffix );
+      return Core::format_description( Plib::tile_flags( graphic ), id.desc, amount_, suffix );
     }
   }
 }
@@ -186,7 +204,7 @@ std::string Item::merchant_description() const
     const ItemDesc& id = this->itemdesc();
     if ( id.desc.get().empty() )
     {
-      return Core::format_description( 0, Core::tile_desc( graphic ), 1, suffix );
+      return Core::format_description( 0, Plib::tile_desc( graphic ), 1, suffix );
     }
     else
     {
@@ -275,7 +293,7 @@ const char* Item::classname() const
 bool Item::default_movable() const
 {
   if ( itemdesc().movable == ItemDesc::DEFAULT )
-    return ( ( Core::tile_flags( graphic ) & Plib::FLAG::MOVABLE ) != 0 );
+    return ( ( Plib::tile_flags( graphic ) & Plib::FLAG::MOVABLE ) != 0 );
   else
     return itemdesc().movable ? true : false;
 }
@@ -355,38 +373,6 @@ void Item::printProperties( Clib::StreamWriter& sw ) const
   if ( invisible() != default_invisible() )
     sw() << "\tInvisible\t" << invisible() << pf_endl;
 
-  s16 value = fire_resist().mod;
-  if ( value != 0 )
-    sw() << "\tFireResistMod\t" << static_cast<int>( value ) << pf_endl;
-  value = cold_resist().mod;
-  if ( value != 0 )
-    sw() << "\tColdResistMod\t" << static_cast<int>( value ) << pf_endl;
-  value = energy_resist().mod;
-  if ( value != 0 )
-    sw() << "\tEnergyResistMod\t" << static_cast<int>( value ) << pf_endl;
-  value = poison_resist().mod;
-  if ( value != 0 )
-    sw() << "\tPoisonResistMod\t" << static_cast<int>( value ) << pf_endl;
-  value = physical_resist().mod;
-  if ( value != 0 )
-    sw() << "\tPhysicalResistMod\t" << static_cast<int>( value ) << pf_endl;
-
-  value = fire_damage().mod;
-  if ( value != 0 )
-    sw() << "\tFireDamageMod\t" << static_cast<int>( value ) << pf_endl;
-  value = cold_damage().mod;
-  if ( value != 0 )
-    sw() << "\tColdDamageMod\t" << static_cast<int>( value ) << pf_endl;
-  value = energy_damage().mod;
-  if ( value != 0 )
-    sw() << "\tEnergyDamageMod\t" << static_cast<int>( value ) << pf_endl;
-  value = poison_damage().mod;
-  if ( value != 0 )
-    sw() << "\tPoisonDamageMod\t" << static_cast<int>( value ) << pf_endl;
-  value = physical_damage().mod;
-  if ( value != 0 )
-    sw() << "\tPhysicalDamageMod\t" << static_cast<int>( value ) << pf_endl;
-
   if ( container != nullptr )
     sw() << "\tContainer\t0x" << hex( container->serial ) << pf_endl;
 
@@ -412,7 +398,55 @@ void Item::printProperties( Clib::StreamWriter& sw ) const
 
   if ( insured() != default_insured() )
     sw() << "\tInsured\t" << insured() << pf_endl;
+  // new prop stuff
+  if ( has_fire_resist() )
+    sw() << "\tFireResist\t" << fire_resist().value << pf_endl;
+  if ( has_cold_resist() )
+    sw() << "\tColdResist\t" << cold_resist().value << pf_endl;
+  if ( has_energy_resist() )
+    sw() << "\tEnergyResist\t" << energy_resist().value << pf_endl;
+  if ( has_poison_resist() )
+    sw() << "\tPoisonResist\t" << poison_resist().value << pf_endl;
+  if ( has_physical_resist() )
+    sw() << "\tPhysicalResist\t" << physical_resist().value << pf_endl;
 
+  if ( has_fire_damage() )
+    sw() << "\tFireDamage\t" << fire_damage().value << pf_endl;
+  if ( has_cold_damage() )
+    sw() << "\tColdDamage\t" << cold_damage().value << pf_endl;
+  if ( has_energy_damage() )
+    sw() << "\tEnergyDamage\t" << energy_damage().value << pf_endl;
+  if ( has_poison_damage() )
+    sw() << "\tPoisonDamage\t" << poison_damage().value << pf_endl;
+  if ( has_physical_damage() )
+    sw() << "\tPhysicalDamage\t" << physical_damage().value << pf_endl;
+  if ( has_lower_reagent_cost() )
+    sw() << "\tLowerReagentCost\t" << lower_reagent_cost().value << pf_endl;
+  if ( has_spell_damage_increase() )
+    sw() << "\tSpellDamageIncrease\t" << spell_damage_increase().value << pf_endl;
+  if ( has_faster_casting() )
+    sw() << "\tFasterCasting\t" << faster_casting().value << pf_endl;
+  if ( has_faster_cast_recovery() )
+    sw() << "\tFasterCastRecovery\t" << faster_cast_recovery().value << pf_endl;
+  if ( has_defence_increase() )
+    sw() << "\tDefenceIncrease\t" << defence_increase().value << pf_endl;
+  if ( has_defence_increase_cap() )
+    sw() << "\tDefenceIncreaseCap\t" << defence_increase_cap().value << pf_endl;
+  if ( has_lower_mana_cost() )
+    sw() << "\tLowerManaCost\t" << lower_mana_cost().value << pf_endl;
+  if ( has_fire_resist_cap() )
+    sw() << "\tFireResistCap\t" << fire_resist_cap().value << pf_endl;
+  if ( has_cold_resist_cap() )
+    sw() << "\tColdResistCap\t" << cold_resist_cap().value << pf_endl;
+  if ( has_energy_resist_cap() )
+    sw() << "\tEnergyResistCap\t" << energy_resist_cap().value << pf_endl;
+  if ( has_physical_resist_cap() )
+    sw() << "\tPhysicalResistCap\t" << physical_resist_cap().value << pf_endl;
+  if ( has_poison_resist_cap() )
+    sw() << "\tPoisonResistCap\t" << poison_resist_cap().value << pf_endl;
+  if ( has_luck() )
+    sw() << "\tLuck\t" << luck().value << pf_endl;
+  // end new prop stuf
   if ( maxhp_mod_ )
     sw() << "\tMaxHp_mod\t" << maxhp_mod_ << pf_endl;
   if ( hp_ != itemdesc().maxhp )
@@ -464,42 +498,83 @@ void Item::readProperties( Clib::ConfigElem& elem )
   hp_ = elem.remove_ushort( "HP", itemdesc().maxhp );
   setQuality( elem.remove_double( "QUALITY", itemdesc().quality ) );
 
-  s16 mod_value = static_cast<s16>( elem.remove_int( "FIRERESISTMOD", 0 ) );
-  if ( mod_value != 0 )
-    fire_resist( fire_resist().setAsMod( mod_value ) );
-  mod_value = static_cast<s16>( elem.remove_int( "COLDRESISTMOD", 0 ) );
-  if ( mod_value != 0 )
-    cold_resist( cold_resist().setAsMod( mod_value ) );
-  mod_value = static_cast<s16>( elem.remove_int( "ENERGYRESISTMOD", 0 ) );
-  if ( mod_value != 0 )
-    energy_resist( energy_resist().setAsMod( mod_value ) );
-  mod_value = static_cast<s16>( elem.remove_int( "POISONRESISTMOD", 0 ) );
-  if ( mod_value != 0 )
-    poison_resist( poison_resist().setAsMod( mod_value ) );
-  mod_value = static_cast<s16>( elem.remove_int( "PHYSICALRESISTMOD", 0 ) );
-  if ( mod_value != 0 )
-    physical_resist( physical_resist().setAsMod( mod_value ) );
-
-  mod_value = static_cast<s16>( elem.remove_int( "FIREDAMAGEMOD", 0 ) );
-  if ( mod_value != 0 )
-    fire_damage( fire_damage().setAsMod( mod_value ) );
-  mod_value = static_cast<s16>( elem.remove_int( "COLDDAMAGEMOD", 0 ) );
-  if ( mod_value != 0 )
-    cold_damage( cold_damage().setAsMod( mod_value ) );
-  mod_value = static_cast<s16>( elem.remove_int( "ENERGYDAMAGEMOD", 0 ) );
-  if ( mod_value != 0 )
-    energy_damage( energy_damage().setAsMod( mod_value ) );
-  mod_value = static_cast<s16>( elem.remove_int( "POISONDAMAGEMOD", 0 ) );
-  if ( mod_value != 0 )
-    poison_damage( poison_damage().setAsMod( mod_value ) );
-  mod_value = static_cast<s16>( elem.remove_int( "PHYSICALDAMAGEMOD", 0 ) );
-  if ( mod_value != 0 )
-    physical_damage( physical_damage().setAsMod( mod_value ) );
-
-
   maxhp_mod( static_cast<s16>( elem.remove_int( "MAXHP_MOD", 0 ) ) );
   name_suffix( elem.remove_string( "NAMESUFFIX", "" ) );
   no_drop( elem.remove_bool( "NODROP", default_no_drop() ) );
+
+  s16 value = static_cast<s16>( elem.remove_int( "FIRERESIST", 0 ) );
+  if ( value != 0 )
+    fire_resist( fire_resist().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "COLDRESIST", 0 ) );
+  if ( value != 0 )
+    cold_resist( cold_resist().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "ENERGYRESIST", 0 ) );
+  if ( value != 0 )
+    energy_resist( energy_resist().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "POISONRESIST", 0 ) );
+  if ( value != 0 )
+    poison_resist( poison_resist().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "PHYSICALRESIST", 0 ) );
+  if ( value != 0 )
+    physical_resist( physical_resist().setAsValue( value ) );
+
+  value = static_cast<s16>( elem.remove_int( "FIREDAMAGE", 0 ) );
+  if ( value != 0 )
+    fire_damage( fire_damage().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "COLDDAMAGE", 0 ) );
+  if ( value != 0 )
+    cold_damage( cold_damage().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "ENERGYDAMAGE", 0 ) );
+  if ( value != 0 )
+    energy_damage( energy_damage().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "POISONDAMAGE", 0 ) );
+  if ( value != 0 )
+    poison_damage( poison_damage().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "PHYSICALDAMAGE", 0 ) );
+  if ( value != 0 )
+    physical_damage( physical_damage().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "DEFENCEINCREASE", 0 ) );
+  if ( value != 0 )
+    defence_increase( defence_increase().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "DEFENCEINCREASECAP", 0 ) );
+  if ( value != 0 )
+    defence_increase_cap( defence_increase_cap().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "LOWERMANACOST", 0 ) );
+  if ( value != 0 )
+    lower_mana_cost( lower_mana_cost().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "HITCHANCE", 0 ) );
+  if ( value != 0 )
+    hit_chance( hit_chance().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "FIRERESISTCAP", 0 ) );
+  if ( value != 0 )
+    fire_resist_cap( fire_resist_cap().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "COLDRESISTCAP", 0 ) );
+  if ( value != 0 )
+    cold_resist_cap( cold_resist_cap().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "ENERGYRESISTCAP", 0 ) );
+  if ( value != 0 )
+    energy_resist_cap( energy_resist_cap().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "POISONRESISTCAP", 0 ) );
+  if ( value != 0 )
+    poison_resist_cap( poison_resist_cap().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "PHYSICALRESISTCAP", 0 ) );
+  if ( value != 0 )
+    physical_resist_cap( physical_resist_cap().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "LOWERREAGENTCOST", 0 ) );
+  if ( value != 0 )
+    lower_reagent_cost( lower_reagent_cost().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "SPELLDAMAGEINCREASE", 0 ) );
+  if ( value != 0 )
+    spell_damage_increase( spell_damage_increase().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "FASTERCASTING", 0 ) );
+  if ( value != 0 )
+    faster_casting( faster_casting().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "FASTERCASTRECOVERY", 0 ) );
+  if ( value != 0 )
+    faster_cast_recovery( faster_cast_recovery().setAsValue( value ) );
+  value = static_cast<s16>( elem.remove_int( "LUCK", 0 ) );
+  if ( value != 0 )
+    luck( luck().setAsValue( value ) );
 }
 
 void Item::builtin_on_use( Network::Client* client )
@@ -556,7 +631,7 @@ unsigned short Item::get_senditem_amount() const
 
 bool Item::setlayer( unsigned char in_layer )
 {
-  if ( Core::tilelayer( graphic ) == in_layer )
+  if ( Plib::tilelayer( graphic ) == in_layer )
   {
     layer = in_layer;
     return true;
@@ -569,7 +644,7 @@ bool Item::setlayer( unsigned char in_layer )
 
 bool Item::stackable() const
 {
-  return ( Core::tile_flags( graphic ) & Plib::FLAG::STACKABLE ) ? true : false;
+  return ( Plib::tile_flags( graphic ) & Plib::FLAG::STACKABLE ) ? true : false;
 }
 
 void Item::setamount( u16 amount )
@@ -661,7 +736,7 @@ void Item::ct_merge_stacks_pergon( Item*& item_sub )
   else
     time = time_self;
 
-  setprop( "ct", "i" + Clib::decint( time ) );
+  setprop( "ct", "i" + Clib::tostring( time ) );
   increv();
 }
 
@@ -695,7 +770,7 @@ void Item::ct_merge_stacks_pergon( u16 amount_sub )
   else
     time = time_self;
 
-  setprop( "ct", "i" + Clib::decint( time ) );
+  setprop( "ct", "i" + Clib::tostring( time ) );
   increv();
 }
 #endif
@@ -819,7 +894,7 @@ void Item::set_use_script( const std::string& scriptname )
 bool Item::setgraphic( u16 newgraphic )
 {
   /// Can't set the graphic of an equipped item, unless the new graphic has the same layer
-  if ( layer && layer != Core::tilelayer( newgraphic ) )
+  if ( layer && layer != Plib::tilelayer( newgraphic ) )
   {
     return false;
   }
@@ -829,8 +904,8 @@ bool Item::setgraphic( u16 newgraphic )
   {
     set_dirty();
     graphic = newgraphic;
-    height = Core::tileheight( graphic );
-    tile_layer = Core::tilelayer( graphic );
+    height = Plib::tileheight( graphic );
+    tile_layer = Plib::tilelayer( graphic );
 
     /// Update facing on graphic change
     const ItemDesc& id = this->itemdesc();
@@ -1193,6 +1268,14 @@ double Item::getItemdescQuality() const
   return itemdesc().quality;
 }
 
+Core::UOExecutor* Item::uoexec_control()
+{
+  if ( process() != nullptr )
+    return &process()->uoexec;
+
+  return nullptr;
+}
+
 double Item::getQuality() const
 {
   return quality();
@@ -1201,5 +1284,85 @@ void Item::setQuality( double value )
 {
   quality( value );
 }
+
+bool Item::get_method_hook( const char* methodname, Bscript::Executor* ex,
+                            Core::ExportScript** hook, unsigned int* PC ) const
+{
+  if ( Core::gamestate.system_hooks.get_method_hook(
+           Core::gamestate.system_hooks.item_method_script.get(), methodname, ex, hook, PC ) )
+    return true;
+  return base::get_method_hook( methodname, ex, hook, PC );
 }
+
+// Event notifications
+
+bool Item::is_visible_to_me( const Mobile::Character* chr ) const
+{
+  if ( chr == nullptr )
+    return false;
+  if ( chr->realm != this->realm )
+    return false;  // noone can see across different realms.
+  if ( !chr->logged_in() )
+    return false;
+
+  // Unless the chr is offline or in a different realm,
+  // items can see anyone (I don't want to bother with privs now...)
+  return true;
 }
+
+void Pol::Items::Item::inform_leftarea( Mobile::Character* wholeft )
+{
+  Core::UOExecutor* ex = uoexec_control();
+  if ( ex == nullptr || !ex->listens_to( Core::EVID_LEFTAREA ) )
+    return;
+
+  if ( pol_distance( wholeft, this ) > ex->area_size )
+    return;
+
+  if ( Core::settingsManager.ssopt.event_visibility_core_checks && !is_visible_to_me( wholeft ) )
+    return;
+
+  ex->signal_event( new Module::SourcedEvent( Core::EVID_LEFTAREA, wholeft ) );
+}
+
+void Pol::Items::Item::inform_enteredarea( Mobile::Character* whoentered )
+{
+  Core::UOExecutor* ex = uoexec_control();
+  if ( ex == nullptr || !ex->listens_to( Core::EVID_ENTEREDAREA ) )
+    return;
+
+  if ( pol_distance( whoentered, this ) > ex->area_size )
+    return;
+
+  if ( Core::settingsManager.ssopt.event_visibility_core_checks && !is_visible_to_me( whoentered ) )
+    return;
+
+  ex->signal_event( new Module::SourcedEvent( Core::EVID_ENTEREDAREA, whoentered ) );
+}
+void Pol::Items::Item::inform_moved( Mobile::Character* moved )
+{
+  Core::UOExecutor* ex = uoexec_control();
+  if ( ex == nullptr || !ex->listens_to( Core::EVID_ENTEREDAREA | Core::EVID_LEFTAREA ) )
+    return;
+
+  if ( Core::settingsManager.ssopt.event_visibility_core_checks && !is_visible_to_me( moved ) )
+    return;
+
+  const bool are_inrange =
+      ( abs( x - moved->x ) <= ex->area_size ) && ( abs( y - moved->y ) <= ex->area_size );
+
+  const bool were_inrange =
+      ( abs( x - moved->lastx ) <= ex->area_size ) && ( abs( y - moved->lasty ) <= ex->area_size );
+
+  if ( are_inrange && !were_inrange && ex->listens_to( Core::EVID_ENTEREDAREA ) )
+  {
+    ex->signal_event( new Module::SourcedEvent( Core::EVID_ENTEREDAREA, moved ) );
+  }
+  else if ( !are_inrange && were_inrange && ex->listens_to( Core::EVID_LEFTAREA ) )
+  {
+    ex->signal_event( new Module::SourcedEvent( Core::EVID_LEFTAREA, moved ) );
+  }
+}
+
+}  // namespace Items
+}  // namespace Pol

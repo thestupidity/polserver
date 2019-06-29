@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include <format/format.h>
 #include "../bscript/eprog.h"
 #include "../clib/cfgelem.h"
 #include "../clib/cfgfile.h"
@@ -30,7 +29,7 @@
 #include "mkscrobj.h"
 #include "mobile/charactr.h"
 #include "network/client.h"
-#include "pktin.h"
+#include "network/pktin.h"
 #include "polclass.h"
 #include "polsig.h"
 #include "scrstore.h"
@@ -40,6 +39,7 @@
 #include "ufunc.h"
 #include "umanip.h"
 #include "vital.h"
+#include <format/format.h>
 
 namespace Pol
 {
@@ -233,15 +233,10 @@ bool USpell::check_mana( Mobile::Character* chr )
   return ( chr->vital( gamestate.pVitalMana->vitalid ).current_ones() >= manacost() );
 }
 
-bool USpell::check_skill( Mobile::Character* chr )
-{
-  return chr->check_skill( SKILLID_MAGERY, params_.difficulty, params_.pointvalue );
-}
-
 void USpell::consume_mana( Mobile::Character* chr )
 {
-  chr->consume( gamestate.pVitalMana, chr->vital( gamestate.pVitalMana->vitalid ),
-                manacost() * 100 );
+  chr->consume( gamestate.pVitalMana, chr->vital( gamestate.pVitalMana->vitalid ), manacost() * 100,
+                Mobile::Character::VitalDepletedReason::SCRIPT );
 }
 
 void USpell::speak_power_words( Mobile::Character* chr, unsigned short font, unsigned short color )
@@ -277,7 +272,7 @@ void SpellTask::on_run()
 
 void do_cast( Network::Client* client, u16 spellid )
 {
-  if ( gamestate.system_hooks.on_cast_hook != nullptr )
+  if ( gamestate.system_hooks.on_cast_hook )
   {
     if ( gamestate.system_hooks.on_cast_hook->call( make_mobileref( client->chr ),
                                                     new Bscript::BLong( spellid ) ) )
@@ -516,5 +511,5 @@ void clean_spells()
   }
   gamestate.spells.clear();
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol

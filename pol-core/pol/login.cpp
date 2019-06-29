@@ -38,8 +38,8 @@
 #include "network/client.h"
 #include "network/packethelper.h"
 #include "network/packets.h"
-#include "pktdef.h"
-#include "pktin.h"
+#include "network/pktdef.h"
+#include "network/pktin.h"
 #include "polcfg.h"
 #include "servdesc.h"
 #include "startloc.h"
@@ -141,7 +141,7 @@ void loginserver_login( Network::Client* client, PKTIN_80* msg )
     send_login_error( client, LOGIN_ERROR_WRONG_PASSWORD );
     client->Disconnect();
     POLLOG.Format( "Incorrect password for account {} from {}\n" )
-        << acct->name() << Network::AddressToString( &client->ipaddr );
+        << acct->name() << client->ipaddrAsString();
     return;
   }
   else
@@ -161,7 +161,7 @@ void loginserver_login( Network::Client* client, PKTIN_80* msg )
   }
 
   POLLOG_INFO.Format( "Account {} logged in from {}\n" )
-      << acct->name() << Network::AddressToString( &client->ipaddr );
+      << acct->name() << client->ipaddrAsString();
 
   client->acct = acct;
 
@@ -218,7 +218,7 @@ void loginserver_login( Network::Client* client, PKTIN_80* msg )
   if ( servcount == 0 )
   {
     POLLOG.Format( "No applicable servers for client connecting from {}\n" )
-        << Network::AddressToString( &client->ipaddr );
+        << client->ipaddrAsString();
   }
 }
 
@@ -387,7 +387,7 @@ void send_start( Network::Client* client )
 
 void login2( Network::Client* client, PKTIN_91* msg )  // Gameserver login and character listing
 {
-  client->encrypt_server_stream = 1;
+  client->encrypt_server_stream = true;
 
   if ( Network::is_banned_ip( client ) )
   {
@@ -422,7 +422,7 @@ void login2( Network::Client* client, PKTIN_91* msg )  // Gameserver login and c
     send_login_error( client, LOGIN_ERROR_WRONG_PASSWORD );
     client->Disconnect();
     POLLOG.Format( "Incorrect password for account {} from {}\n" )
-        << acct->name() << Network::AddressToString( &client->ipaddr );
+        << acct->name() << client->ipaddrAsString();
     return;
   }
   else
@@ -447,7 +447,7 @@ void login2( Network::Client* client, PKTIN_91* msg )  // Gameserver login and c
   //
 
   POLLOG.Format( "Account {} logged in from {}\n" )
-      << acct->name() << Network::AddressToString( &client->ipaddr );
+      << acct->name() << client->ipaddrAsString();
 
   // ENHANCEMENT: could authenticate with real loginservers.
 
@@ -498,7 +498,7 @@ void handle_delete_character( Network::Client* client, PKTIN_83* msg )
   Accounts::Account* acct = client->acct;
   Mobile::Character* chr = acct->get_character( charidx );
   if ( chr->client != nullptr || ( !Plib::systemstate.config.allow_multi_clients_per_account &&
-                                acct->has_active_characters() ) )
+                                   acct->has_active_characters() ) )
   {
     send_login_error( client, LOGIN_ERROR_OTHER_CHAR_INUSE );
     client->Disconnect();
@@ -518,5 +518,5 @@ void KR_Verifier_Response( Network::Client* /*client*/, PKTIN_E4* /*msg*/ )
 {
   //
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol

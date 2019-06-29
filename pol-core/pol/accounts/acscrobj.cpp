@@ -50,7 +50,7 @@ void call_ondelete_scripts( Mobile::Character* chr );
 bool can_delete_character( Mobile::Character* chr, int delete_by );
 void delete_character( Accounts::Account* acct, Mobile::Character* chr, int charidx );
 void createchar2( Accounts::Account* acct, unsigned index );
-}
+}  // namespace Core
 namespace Accounts
 {
 Bscript::BApplicObjType accountobjimp_type;
@@ -78,10 +78,17 @@ Bscript::BObjectImp* AccountObjImp::copy() const
 ///   All methods return Error("Invalid parameter type") if the wrong type was passed.
 ///
 Bscript::BObjectImp* AccountObjImp::call_method_id( const int id, Bscript::Executor& ex,
-                                                    bool /*forcebuiltin*/ )
+                                                    bool forcebuiltin )
 {
   using namespace Bscript;
   BObjectImp* result = nullptr;
+  ObjMethod* mth = getObjMethod( id );
+  if ( mth->overridden && !forcebuiltin )
+  {
+    result = Core::gamestate.system_hooks.call_script_method( mth->code, &ex, this );
+    if ( result )
+      return result;
+  }
 
   switch ( id )
   {
@@ -434,6 +441,12 @@ Bscript::BObjectImp* AccountObjImp::call_method_id( const int id, Bscript::Execu
           obj_->clear_character( index - 1 );
           chr->acct.set( account );
           account->set_character( 0, chr );
+
+          // note: I can't return here, otherwise the new account won't be saved to accounts.txt.
+          //       Check the last lines of this function.
+
+          result = new Accounts::AccountObjImp(
+              Accounts::AccountPtrHolder( Core::AccountRef( account ) ) );
         }
         else
           return new BError( "Was impossible to create new Account." );
@@ -541,11 +554,11 @@ Bscript::BObjectImp* AccountObjImp::call_method_id( const int id, Bscript::Execu
 ///
 Bscript::BObjectImp* AccountObjImp::call_method( const char* methodname, Bscript::Executor& ex )
 {
+  bool forcebuiltin{Bscript::Executor::builtinMethodForced( methodname )};
   Bscript::ObjMethod* objmethod = Bscript::getKnownObjMethod( methodname );
   if ( objmethod != nullptr )
-    return this->call_method_id( objmethod->id, ex );
-  else
-    return nullptr;
+    return this->call_method_id( objmethod->id, ex, forcebuiltin );
+  return Core::gamestate.system_hooks.call_script_method( methodname, &ex, this );
 }
 
 ///
@@ -594,5 +607,5 @@ Bscript::BObjectRef AccountObjImp::get_member( const char* membername )
   else
     return BObjectRef( UninitObject::create() );
 }
-}
-}
+}  // namespace Accounts
+}  // namespace Pol

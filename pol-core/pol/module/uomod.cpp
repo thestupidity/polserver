@@ -87,15 +87,17 @@
 #include "../../clib/logfacility.h"
 #include "../../clib/passert.h"
 #include "../../clib/refptr.h"
+#include "../../plib/clidata.h"
 #include "../../plib/mapcell.h"
 #include "../../plib/mapshape.h"
 #include "../../plib/maptile.h"
 #include "../../plib/staticblock.h"
 #include "../../plib/stlastar.h"
 #include "../../plib/systemstate.h"
+#include "../../plib/uconst.h"
+#include "../../plib/udatfile.h"
 #include "../action.h"
 #include "../cfgrepos.h"
-#include "../clidata.h"
 #include "../containr.h"
 #include "../core.h"
 #include "../eventid.h"
@@ -124,10 +126,10 @@
 #include "../network/client.h"
 #include "../network/packethelper.h"
 #include "../network/packets.h"
+#include "../network/pktboth.h"
+#include "../network/pktdef.h"
 #include "../npctmpl.h"
 #include "../objtype.h"
-#include "../pktboth.h"
-#include "../pktdef.h"
 #include "../polcfg.h"
 #include "../polclass.h"
 #include "../polclock.h"
@@ -142,20 +144,18 @@
 #include "../scrstore.h"
 #include "../spells.h"
 #include "../target.h"
-#include "../uconst.h"
-#include "../udatfile.h"
 #include "../ufunc.h"
 #include "../uimport.h"
 #include "../umanip.h"
 #include "../unicode.h"
 #include "../uobject.h"
 #include "../uoexec.h"
+#include "../uoexhelp.h"
 #include "../uopathnode.h"
 #include "../uoscrobj.h"
 #include "../uworld.h"
 #include "../wthrtype.h"
 #include "cfgmod.h"
-#include "osmod.h"
 
 namespace Pol
 {
@@ -339,7 +339,7 @@ BObjectImp* _create_item_in_container( UContainer* cont, const ItemDesc* descrip
                                        unsigned short amount, bool force_stacking,
                                        UOExecutorModule* uoemod )
 {
-  if ( ( tile_flags( descriptor->graphic ) & Plib::FLAG::STACKABLE ) || force_stacking )
+  if ( ( Plib::tile_flags( descriptor->graphic ) & Plib::FLAG::STACKABLE ) || force_stacking )
   {
     for ( UContainer::const_iterator itr = cont->begin(); itr != cont->end(); ++itr )
     {
@@ -678,7 +678,7 @@ BObjectImp* UOExecutorModule::mf_FindObjtypeInContainer()
   {
     return new BError( "That is not a container" );
   }
-  if ( !getParam( 4, flags ) )
+  if ( !getParam( 2, flags ) )
     flags = 0;
 
   UContainer* cont = static_cast<UContainer*>( item );
@@ -784,7 +784,7 @@ void handle_script_cursor( Character* chr, UObject* obj )
           new BObject( obj->make_ref() ) );
     }
     // even on cancel, we wake the script up.
-    chr->client->gd->target_cursor_uoemod->uoexec.os_module->revive();
+    chr->client->gd->target_cursor_uoemod->uoexec.revive();
     chr->client->gd->target_cursor_uoemod->target_cursor_chr = nullptr;
     chr->client->gd->target_cursor_uoemod = nullptr;
   }
@@ -919,7 +919,7 @@ void handle_coord_cursor( Character* chr, PKTBI_6C* msg )
       chr->client->gd->target_cursor_uoemod->uoexec.ValueStack.back().set( new BObject( arr ) );
     }
 
-    chr->client->gd->target_cursor_uoemod->uoexec.os_module->revive();
+    chr->client->gd->target_cursor_uoemod->uoexec.revive();
     chr->client->gd->target_cursor_uoemod->target_cursor_chr = nullptr;
     chr->client->gd->target_cursor_uoemod = nullptr;
   }
@@ -1126,7 +1126,7 @@ BObjectImp* UOExecutorModule::mf_CreateItemAtLocation( /* x,y,z,objtype,amount,r
        getObjtypeParam( exec, 3, itemdesc ) && getParam( 4, amount, 1, 60000 ) &&
        getStringParam( 5, strrealm ) && item_create_params_ok( itemdesc->objtype, amount ) )
   {
-    if ( !( tile_flags( itemdesc->graphic ) & Plib::FLAG::STACKABLE ) && ( amount != 1 ) )
+    if ( !( Plib::tile_flags( itemdesc->graphic ) & Plib::FLAG::STACKABLE ) && ( amount != 1 ) )
     {
       return new BError( "That item is not stackable.  Create one at a time." );
     }
@@ -1309,7 +1309,7 @@ BObjectImp* UOExecutorModule::mf_CreateNpcFromTemplate()
   {
     return new BError( "NPC template '" + tmplname->value() + "' not found" );
   }
-  MOVEMODE movemode = Character::decode_movemode( elem.read_string( "MoveMode", "L" ) );
+  Plib::MOVEMODE movemode = Character::decode_movemode( elem.read_string( "MoveMode", "L" ) );
 
   short newz;
   Multi::UMulti* dummy_multi;
@@ -1422,7 +1422,7 @@ BObjectImp* UOExecutorModule::mf_AddAmount()
     {
       return new BError( "That item is being used." );
     }
-    if ( ~tile_flags( item->graphic ) & Plib::FLAG::STACKABLE )
+    if ( ~Plib::tile_flags( item->graphic ) & Plib::FLAG::STACKABLE )
     {
       return new BError( "That item type is not stackable." );
     }
@@ -1560,7 +1560,7 @@ void menu_selection_made( Network::Client* client, MenuItem* mi, PKTIN_7D* msg )
             new BObject( selection ) );
       }
       // 0 is already on the value stack, for the case of cancellation.
-      chr->client->gd->menu_selection_uoemod->uoexec.os_module->revive();
+      chr->client->gd->menu_selection_uoemod->uoexec.revive();
       chr->client->gd->menu_selection_uoemod->menu_selection_chr = nullptr;
       chr->client->gd->menu_selection_uoemod = nullptr;
     }
@@ -2265,6 +2265,100 @@ BObjectImp* UOExecutorModule::mf_ListObjectsInBox( /* x1, y1, z1, x2, y2, z2, re
   return newarr.release();
 }
 
+BObjectImp* UOExecutorModule::mf_ListItemsInBoxOfObjType(
+    /* objtype, x1, y1, z1, x2, y2, z2, realm */ )
+{
+  unsigned int objtype;
+  unsigned short x1, y1;
+  int z1;
+  unsigned short x2, y2;
+  int z2;
+  const String* strrealm;
+  Realms::Realm* realm;
+
+  if ( !( getParam( 0, objtype ) && getParam( 1, x1 ) && getParam( 2, y1 ) && getParam( 3, z1 ) &&
+          getParam( 4, x2 ) && getParam( 5, y2 ) && getParam( 6, z2 ) &&
+          getStringParam( 7, strrealm ) ) )
+  {
+    return new BError( "Invalid parameter" );
+  }
+
+  realm = find_realm( strrealm->value() );
+  if ( !realm )
+    return new BError( "Realm not found" );
+
+  if ( x1 > x2 )
+    std::swap( x1, x2 );
+  if ( y1 > y2 )
+    std::swap( y1, y2 );
+  if ( ( z1 > z2 ) && z1 != LIST_IGNORE_Z && z2 != LIST_IGNORE_Z )
+    std::swap( z1, z2 );
+  // Disabled again: ShardAdmins "loves" this "bug" :o/
+  // if ((!realm->valid(x1, y1, z1)) || (!realm->valid(x2, y2, z2)))
+  //   return new BError("Invalid Coordinates for realm");
+  internal_InBoxAreaChecks( x1, y1, z1, x2, y2, z2, realm );
+
+  std::unique_ptr<ObjArray> newarr( new ObjArray );
+  WorldIterator<ItemFilter>::InBox( x1, y1, x2, y2, realm, [&]( Items::Item* item ) {
+    if ( item->z >= z1 && item->z <= z2 && item->objtype_ == objtype )
+    {
+      newarr->addElement( item->make_ref() );
+    }
+  } );
+
+  return newarr.release();
+}
+
+BObjectImp* UOExecutorModule::mf_ListObjectsInBoxOfClass(
+    /* POL_Class, x1, y1, z1, x2, y2, z2, realm */ )
+{
+  unsigned int POL_Class;
+  unsigned short x1, y1;
+  int z1;
+  unsigned short x2, y2;
+  int z2;
+  const String* strrealm;
+  Realms::Realm* realm;
+
+  if ( !( getParam( 0, POL_Class ) && getParam( 1, x1 ) && getParam( 2, y1 ) && getParam( 3, z1 ) &&
+          getParam( 4, x2 ) && getParam( 5, y2 ) && getParam( 6, z2 ) &&
+          getStringParam( 7, strrealm ) ) )
+  {
+    return new BError( "Invalid parameter" );
+  }
+
+  realm = find_realm( strrealm->value() );
+  if ( !realm )
+    return new BError( "Realm not found" );
+
+  if ( x1 > x2 )
+    std::swap( x1, x2 );
+  if ( y1 > y2 )
+    std::swap( y1, y2 );
+  if ( ( z1 > z2 ) && z1 != LIST_IGNORE_Z && z2 != LIST_IGNORE_Z )
+    std::swap( z1, z2 );
+  // Disabled again: ShardAdmins "loves" this "bug" :o/
+  // if ((!realm->valid(x1, y1, z1)) || (!realm->valid(x2, y2, z2)))
+  //   return new BError("Invalid Coordinates for realm");
+  internal_InBoxAreaChecks( x1, y1, z1, x2, y2, z2, realm );
+
+  std::unique_ptr<ObjArray> newarr( new ObjArray );
+  WorldIterator<MobileFilter>::InBox( x1, y1, x2, y2, realm, [&]( Mobile::Character* chr ) {
+    if ( chr->z >= z1 && chr->z <= z2 && chr->script_isa( POL_Class ) )
+    {
+      newarr->addElement( chr->make_ref() );
+    }
+  } );
+  WorldIterator<ItemFilter>::InBox( x1, y1, x2, y2, realm, [&]( Items::Item* item ) {
+    if ( item->z >= z1 && item->z <= z2 && item->script_isa( POL_Class ) )
+    {
+      newarr->addElement( item->make_ref() );
+    }
+  } );
+
+  return newarr.release();
+}
+
 BObjectImp* UOExecutorModule::mf_ListMobilesInBox( /* x1, y1, z1, x2, y2, z2, realm */ )
 {
   unsigned short x1, y1;
@@ -2380,7 +2474,7 @@ BObjectImp* UOExecutorModule::mf_ListMultisInBox( /* x1, y1, z1, x2, y2, z2, rea
           if ( x1 <= absx && absx <= x2 && y1 <= absy && absy <= y2 )
           {
             // do Z checking
-            int height = tileheight( elem->graphic() );
+            int height = Plib::tileheight( getgraphic( elem->objtype ) );
             int top = absz + height;
 
             if ( ( z1 <= absz && absz <= z2 ) ||  // bottom point lies between
@@ -2452,7 +2546,7 @@ BObjectImp* UOExecutorModule::mf_ListStaticsInBox( /* x1, y1, z1, x2, y2, z2, fl
 
         if ( !( flags & ITEMS_IGNORE_MULTIS ) )
         {
-          StaticList mlist;
+          Plib::StaticList mlist;
           realm->readmultis( mlist, wx, wy );
 
           for ( unsigned i = 0; i < mlist.size(); ++i )
@@ -3676,7 +3770,7 @@ BObjectImp* UOExecutorModule::mf_EquipItem()
       return new BError( "Item was destroyed in EquipTest script" );
     }
 
-    item->layer = tilelayer( item->graphic );
+    item->layer = Plib::tilelayer( item->graphic );
 
     if ( item->has_equip_script() )
     {
@@ -4007,8 +4101,8 @@ BObjectImp* UOExecutorModule::mf_SendPacket()
 BObjectImp* UOExecutorModule::mf_SendQuestArrow()
 {
   Character* chr;
-  int x, y;
-  UObject* target = nullptr;
+  int x, y, arrow_id;
+  u32 arrowid;
 
   if ( getCharacterParam( exec, 0, chr ) && getParam( 1, x, -1, 1000000 ) &&
        getParam( 2, y, -1, 1000000 ) )  // max values checked below
@@ -4016,6 +4110,17 @@ BObjectImp* UOExecutorModule::mf_SendQuestArrow()
     if ( !chr->has_active_client() )
       return new BError( "No client attached" );
 
+    if (exec.getParam(3, arrow_id))
+    {
+        if (arrow_id < 1)
+            return new BError("ArrowID out of range");
+        arrowid = (u32)arrow_id;
+  
+    }
+    else
+    {
+        arrowid = this->uoexec.pid();
+    }
     bool usesNewPktSize = ( chr->client->ClientType & Network::CLIENTTYPE_7090 ) > 0;
 
     Network::PktHelper::PacketOut<Network::PktOut_BA> msg;
@@ -4023,8 +4128,17 @@ BObjectImp* UOExecutorModule::mf_SendQuestArrow()
     {
       msg->Write<u8>( PKTOUT_BA_ARROW_OFF );
       msg->offset += 4;  // u16 x_tgt,y_tgt
-      if ( usesNewPktSize )
-        msg->offset += 4;  // u32 serial
+      if (usesNewPktSize)
+      {
+          if (!arrow_id || arrow_id == 0 )
+          {
+             return new BError( "ArrowID must be supplied for cancelation." );
+          }
+          else
+          {
+              msg->Write<u32>(static_cast<u32>(arrowid & 0xFFFFFFFF));
+          }
+      }
     }
     else
     {
@@ -4035,17 +4149,10 @@ BObjectImp* UOExecutorModule::mf_SendQuestArrow()
       msg->WriteFlipped<u16>( static_cast<u16>( x & 0xFFFF ) );
       msg->WriteFlipped<u16>( static_cast<u16>( y & 0xFFFF ) );
       if ( usesNewPktSize )
-      {
-        if ( !getUObjectParam( exec, 3, target ) )
-        {
-          exec.setFunctionResult( nullptr );
-          return new BError( "No valid target for HSA client" );
-        }
-        msg->Write<u32>( static_cast<u32>( target->serial_ext & 0xFFFFFFFF ) );
-      }
+        msg->Write<u32>( static_cast<u32>( arrowid & 0xFFFFFFFF ) );
     }
     msg.Send( chr->client );
-    return new BLong( 1 );
+    return new BLong(arrowid);
   }
   else
   {
@@ -4465,7 +4572,7 @@ BObjectImp* UOExecutorModule::mf_GetStandingHeight()
     short newz;
     Multi::UMulti* multi;
     Item* walkon;
-    if ( realm->lowest_walkheight( x, y, z, &newz, &multi, &walkon, true, MOVEMODE_LAND ) )
+    if ( realm->lowest_walkheight( x, y, z, &newz, &multi, &walkon, true, Plib::MOVEMODE_LAND ) )
     {
       std::unique_ptr<BStruct> arr( new BStruct );
       arr->addMember( "z", new BLong( newz ) );
@@ -4666,7 +4773,7 @@ bool UOExecutorModule::is_reserved_to_me( Item* item )
 
 BObjectImp* UOExecutorModule::mf_Shutdown()
 {
-  Clib::exit_signalled = 1;
+  Clib::exit_signalled = true;
 #ifndef _WIN32
   // the catch_signals_thread (actually main) sits with sigwait(),
   // so it won't wake up except by being signalled.
@@ -4750,7 +4857,7 @@ BObjectImp* UOExecutorModule::mf_ListItemsNearLocationWithFlag(
 
     std::unique_ptr<ObjArray> newarr( new ObjArray );
     WorldIterator<ItemFilter>::InRange( x, y, realm, range, [&]( Item* item ) {
-      if ( ( tile_uoflags( item->graphic ) & flags ) )
+      if ( ( Plib::tile_uoflags( item->graphic ) & flags ) )
       {
         if ( ( abs( item->x - x ) <= range ) && ( abs( item->y - y ) <= range ) )
         {
@@ -4814,7 +4921,7 @@ BObjectImp* UOExecutorModule::mf_ListStaticsAtLocation( /* x, y, z, flags, realm
 
     if ( !( flags & ITEMS_IGNORE_MULTIS ) )
     {
-      StaticList mlist;
+      Plib::StaticList mlist;
       realm->readmultis( mlist, x, y );
 
       for ( unsigned i = 0; i < mlist.size(); ++i )
@@ -4905,7 +5012,7 @@ BObjectImp* UOExecutorModule::mf_ListStaticsNearLocation( /* x, y, z, range, fla
 
         if ( !( flags & ITEMS_IGNORE_MULTIS ) )
         {
-          StaticList mlist;
+          Plib::StaticList mlist;
           realm->readmultis( mlist, wx, wy );
 
           for ( unsigned i = 0; i < mlist.size(); ++i )
@@ -5375,16 +5482,16 @@ BObjectImp* UOExecutorModule::mf_CanWalk(
        ( getParam( 3, z ) ) && ( getParam( 4, x2_or_dir ) ) && ( getParam( 5, y2_ ) ) &&
        ( getStringParam( 6, realm_name ) ) )
   {
-    MOVEMODE movemode = Character::decode_movemode( movemode_name->value() );
+    Plib::MOVEMODE movemode = Character::decode_movemode( movemode_name->value() );
 
     Realms::Realm* realm = find_realm( realm_name->value() );
     if ( !realm )
       return new BError( "Realm not found." );
     else if ( !realm->valid( x, y, z ) )
       return new BError( "Invalid coordinates for realm." );
-    UFACING dir;
+    Plib::UFACING dir;
     if ( y2_ == -1 )
-      dir = static_cast<UFACING>( x2_or_dir & 0x7 );
+      dir = static_cast<Plib::UFACING>( x2_or_dir & 0x7 );
     else
     {
       if ( !realm->valid( static_cast<xcoord>( x2_or_dir ), static_cast<ycoord>( y2_ ), 0 ) )
@@ -5548,6 +5655,13 @@ BObjectImp* UOExecutorModule::mf_GetMidpointCircleCoords( /* xcenter, ycenter, r
 
   return coords.release();
 }
+
+size_t UOExecutorModule::sizeEstimate() const
+{
+  size_t size = sizeof( *this );
+  size += 3 * sizeof( Core::ItemRef* ) + reserved_items_.capacity() * sizeof( Core::ItemRef );
+  return size;
+}
 }  // namespace Module
 
 namespace Bscript
@@ -5609,6 +5723,8 @@ TmplExecutorModule<UOExecutorModule>::FunctionTable
         {"PlayStationaryEffect", &UOExecutorModule::mf_PlayStationaryEffect},
         {"GetMapInfo", &UOExecutorModule::mf_GetMapInfo},
         {"ListObjectsInBox", &UOExecutorModule::mf_ListObjectsInBox},
+        {"ListItemsInBoxOfObjType", &UOExecutorModule::mf_ListItemsInBoxOfObjType},
+        {"ListObjectsInBoxOfClass", &UOExecutorModule::mf_ListObjectsInBoxOfClass},
         {"ListMultisInBox", &UOExecutorModule::mf_ListMultisInBox},
         {"ListStaticsInBox", &UOExecutorModule::mf_ListStaticsInBox},
         {"ListEquippedItems", &UOExecutorModule::mf_ListEquippedItems},

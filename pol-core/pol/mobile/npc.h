@@ -29,12 +29,12 @@
 #include "../../bscript/bobject.h"
 #include "../../clib/boostutils.h"
 #include "../../clib/rawtypes.h"
+#include "../../plib/uconst.h"
 #include "../dynproperties.h"
 #include "../eventid.h"
 #include "../item/weapon.h"
 #include "../npctmpl.h"
 #include "../reftypes.h"
-#include "../uconst.h"
 
 namespace Pol
 {
@@ -68,7 +68,8 @@ namespace Core
 {
 class RepSystem;
 class UOExecutor;
-}
+class ExportScript;
+}  // namespace Core
 namespace Mobile
 {
 struct Anchor
@@ -116,6 +117,8 @@ public:
   virtual Bscript::BObjectImp* custom_script_method( const char* methodname,
                                                      Bscript::Executor& ex ) override;
   virtual bool script_isa( unsigned isatype ) const override;
+  virtual bool get_method_hook( const char* methodname, Bscript::Executor* executor,
+                                Core::ExportScript** hook, unsigned int* PC ) const override;
 
 protected:
   virtual const char* classname() const override;
@@ -160,9 +163,9 @@ protected:
 public:
   bool use_adjustments() const;
   void use_adjustments( bool newvalue );
-  bool could_move( Core::UFACING dir ) const;
-  bool anchor_allows_move( Core::UFACING dir ) const;
-  bool npc_path_blocked( Core::UFACING dir ) const;
+  bool could_move( Plib::UFACING dir ) const;
+  bool anchor_allows_move( Plib::UFACING dir ) const;
+  bool npc_path_blocked( Plib::UFACING dir ) const;
 
   // EVENTS
 public:
@@ -209,6 +212,22 @@ private:
   DYN_PROPERTY( orig_poison_damage, s16, Core::PROP_ORIG_DAMAGE_POISON, 0 );
   DYN_PROPERTY( orig_physical_damage, s16, Core::PROP_ORIG_DAMAGE_PHYSICAL, 0 );
 
+
+  DYN_PROPERTY( orig_lower_reagent_cost, s16, Core::PROP_ORIG_LOWER_REAG_COST, 0 );
+  DYN_PROPERTY( orig_spell_damage_increase, s16, Core::PROP_ORIG_SPELL_DAMAGE_INCREASE, 0 );
+  DYN_PROPERTY( orig_faster_casting, s16, Core::PROP_ORIG_FASTER_CASTING, 0 );
+  DYN_PROPERTY( orig_faster_cast_recovery, s16, Core::PROP_ORIG_FASTER_CAST_RECOVERY, 0 );
+  DYN_PROPERTY( orig_defence_increase, s16, Core::PROP_ORIG_DEFENCE_INCREASE, 0 );
+  DYN_PROPERTY( orig_defence_increase_cap, s16, Core::PROP_ORIG_DEFENCE_INCREASE_CAP, 0 );
+  DYN_PROPERTY( orig_lower_mana_cost, s16, Core::PROP_ORIG_LOWER_MANA_COST, 0 );
+  DYN_PROPERTY( orig_hit_chance, s16, Core::PROP_ORIG_HIT_CHANCE, 0 );
+  DYN_PROPERTY( orig_fire_resist_cap, s16, Core::PROP_ORIG_RESIST_FIRE_CAP, 0 );
+  DYN_PROPERTY( orig_cold_resist_cap, s16, Core::PROP_ORIG_RESIST_COLD_CAP, 0 );
+  DYN_PROPERTY( orig_energy_resist_cap, s16, Core::PROP_ORIG_RESIST_ENERGY_CAP, 0 );
+  DYN_PROPERTY( orig_poison_resist_cap, s16, Core::PROP_ORIG_RESIST_POISON_CAP, 0 );
+  DYN_PROPERTY( orig_physical_resist_cap, s16, Core::PROP_ORIG_RESIST_PHYSICAL_CAP, 0 );
+  DYN_PROPERTY( orig_luck, s16, Core::PROP_ORIG_LUCK, 0 );
+
   void resetEquipablePropertiesNPC();
 
   // MISC
@@ -239,8 +258,8 @@ private:
   Anchor anchor;
   // EVENTS
 private:
-  DYN_PROPERTY( speech_color, u16, Core::PROP_SPEECH_COLOR, Core::DEFAULT_TEXT_COLOR );
-  DYN_PROPERTY( speech_font, u16, Core::PROP_SPEECH_FONT, Core::DEFAULT_TEXT_FONT );
+  DYN_PROPERTY( speech_color, u16, Core::PROP_SPEECH_COLOR, Plib::DEFAULT_TEXT_COLOR );
+  DYN_PROPERTY( speech_font, u16, Core::PROP_SPEECH_FONT, Plib::DEFAULT_TEXT_FONT );
   // SCRIPT
 private:
   boost_utils::script_name_flystring script;
@@ -282,6 +301,6 @@ inline unsigned short NPC::ar() const
   else
     return ar_;
 }
-}
-}
+}  // namespace Mobile
+}  // namespace Pol
 #endif

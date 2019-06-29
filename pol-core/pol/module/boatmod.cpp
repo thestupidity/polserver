@@ -13,10 +13,10 @@
 
 #include "../../bscript/berror.h"
 #include "../../clib/rawtypes.h"
+#include "../../plib/uconst.h"
 #include "../multi/boat.h"
 #include "../multi/multi.h"
 #include "../realms/realm.h"
-#include "../uconst.h"
 #include "../uoexhelp.h"
 
 namespace Pol
@@ -49,7 +49,7 @@ Bscript::BObjectImp* UBoatExecutorModule::mf_MoveBoat()
   if ( getUBoatParam( exec, 0, boat ) && getParam( 1, direction, 0, 7 ) &&
        getParam( 2, speed, 1, 4 ) )
   {
-    Core::UFACING move_dir = static_cast<Core::UFACING>( direction & 7 );
+    Plib::UFACING move_dir = static_cast<Plib::UFACING>( direction & 7 );
     return new Bscript::BLong( boat->move( move_dir, static_cast<u8>( speed ), false ) );
   }
   return nullptr;
@@ -94,7 +94,7 @@ Bscript::BObjectImp* UBoatExecutorModule::mf_MoveBoatRelative()
   if ( getUBoatParam( exec, 0, boat ) && getParam( 1, direction, 0, 7 ) &&
        getParam( 2, speed, 1, 4 ) )
   {
-    Core::UFACING move_dir = static_cast<Core::UFACING>( direction & 7 );
+    Plib::UFACING move_dir = static_cast<Plib::UFACING>( direction & 7 );
     return new Bscript::BLong( boat->move( move_dir, static_cast<u8>( speed ), true ) );
   }
   return nullptr;

@@ -18,6 +18,7 @@
 #include "../clib/clib.h"
 #include "../clib/logfacility.h"
 #include "../clib/passert.h"
+#include "../clib/stlutil.h"
 #include "../clib/strutil.h"
 #include "berror.h"
 #include "config.h"
@@ -334,7 +335,7 @@ BObjectImp* Executor::getParamImp2( unsigned param, BObjectImp::BObjectType type
   }
   else
   {
-    std::string report = "Invalid parameter type.  Expected param " + Clib::decint( param ) +
+    std::string report = "Invalid parameter type.  Expected param " + Clib::tostring( param ) +
                          " as " + BObjectImp::typestr( type ) + ", got " +
                          BObjectImp::typestr( imp->type() );
     func_result_ = new BError( report );
@@ -389,9 +390,9 @@ bool Executor::getParam( unsigned param, int& value, int maxval )
     }
     else
     {
-      std::string report = "Parameter " + Clib::decint( param ) + " value " +
-                           Clib::decint( value ) + " out of expected range of [0.." +
-                           Clib::decint( maxval ) + "]";
+      std::string report = "Parameter " + Clib::tostring( param ) + " value " +
+                           Clib::tostring( value ) + " out of expected range of [0.." +
+                           Clib::tostring( maxval ) + "]";
       func_result_ = new BError( report );
       return false;
     }
@@ -416,9 +417,9 @@ bool Executor::getParam( unsigned param, int& value, int minval, int maxval )
     }
     else
     {
-      std::string report = "Parameter " + Clib::decint( param ) + " value " +
-                           Clib::decint( value ) + " out of expected range of [" +
-                           Clib::decint( minval ) + ".." + Clib::decint( maxval ) + "]";
+      std::string report = "Parameter " + Clib::tostring( param ) + " value " +
+                           Clib::tostring( value ) + " out of expected range of [" +
+                           Clib::tostring( minval ) + ".." + Clib::tostring( maxval ) + "]";
       func_result_ = new BError( report );
       return false;
     }
@@ -523,9 +524,9 @@ bool Executor::getParam( unsigned param, unsigned short& value, unsigned short m
     }
     else
     {
-      std::string report = "Parameter " + Clib::decint( param ) + " value " +
-                           Clib::decint( longvalue ) + " out of expected range of [0.." +
-                           Clib::decint( maxval ) + "]";
+      std::string report = "Parameter " + Clib::tostring( param ) + " value " +
+                           Clib::tostring( longvalue ) + " out of expected range of [0.." +
+                           Clib::tostring( maxval ) + "]";
       func_result_ = new BError( report );
       return false;
     }
@@ -552,9 +553,9 @@ bool Executor::getParam( unsigned param, unsigned short& value, unsigned short m
     }
     else
     {
-      std::string report = "Parameter " + Clib::decint( param ) + " value " +
-                           Clib::decint( longvalue ) + " out of expected range of [" +
-                           Clib::decint( minval ) + ".." + Clib::decint( maxval ) + "]";
+      std::string report = "Parameter " + Clib::tostring( param ) + " value " +
+                           Clib::tostring( longvalue ) + " out of expected range of [" +
+                           Clib::tostring( minval ) + ".." + Clib::tostring( maxval ) + "]";
       func_result_ = new BError( report );
       return false;
     }
@@ -579,9 +580,9 @@ bool Executor::getParam( unsigned param, unsigned short& value )
     }
     else
     {
-      std::string report = "Parameter " + Clib::decint( param ) + " value " +
-                           Clib::decint( longvalue ) + " out of expected range of [0.." +
-                           Clib::decint( USHRT_MAX ) + "]";
+      std::string report = "Parameter " + Clib::tostring( param ) + " value " +
+                           Clib::tostring( longvalue ) + " out of expected range of [0.." +
+                           Clib::tostring( USHRT_MAX ) + "]";
       func_result_ = new BError( report );
       return false;
     }
@@ -606,9 +607,9 @@ bool Executor::getParam( unsigned param, unsigned& value )
     }
     else
     {
-      std::string report = "Parameter " + Clib::decint( param ) + " value " +
-                           Clib::decint( longvalue ) + " out of expected range of [0.." +
-                           Clib::decint( INT_MAX ) + "]";
+      std::string report = "Parameter " + Clib::tostring( param ) + " value " +
+                           Clib::tostring( longvalue ) + " out of expected range of [0.." +
+                           Clib::tostring( INT_MAX ) + "]";
       func_result_ = new BError( report );
       return false;
     }
@@ -634,9 +635,9 @@ bool Executor::getParam( unsigned param, short& value )
     }
     else
     {
-      std::string report = "Parameter " + Clib::decint( param ) + " value " +
-                           Clib::decint( longvalue ) + " out of expected range of [" +
-                           Clib::decint( SHRT_MIN ) + ".." + Clib::decint( SHRT_MAX ) + "]";
+      std::string report = "Parameter " + Clib::tostring( param ) + " value " +
+                           Clib::tostring( longvalue ) + " out of expected range of [" +
+                           Clib::tostring( SHRT_MIN ) + ".." + Clib::tostring( SHRT_MAX ) + "]";
       func_result_ = new BError( report );
       return false;
     }
@@ -662,9 +663,9 @@ bool Executor::getParam( unsigned param, short& value, short maxval )
     }
     else
     {
-      std::string report = "Parameter " + Clib::decint( param ) + " value " +
-                           Clib::decint( longvalue ) + " out of expected range of [" +
-                           Clib::decint( SHRT_MIN ) + ".." + Clib::decint( maxval ) + "]";
+      std::string report = "Parameter " + Clib::tostring( param ) + " value " +
+                           Clib::tostring( longvalue ) + " out of expected range of [" +
+                           Clib::tostring( SHRT_MIN ) + ".." + Clib::tostring( maxval ) + "]";
       func_result_ = new BError( report );
       return false;
     }
@@ -690,9 +691,9 @@ bool Executor::getParam( unsigned param, short& value, short minval, short maxva
     }
     else
     {
-      std::string report = "Parameter " + Clib::decint( param ) + " value " +
-                           Clib::decint( longvalue ) + " out of expected range of [" +
-                           Clib::decint( minval ) + ".." + Clib::decint( maxval ) + "]";
+      std::string report = "Parameter " + Clib::tostring( param ) + " value " +
+                           Clib::tostring( longvalue ) + " out of expected range of [" +
+                           Clib::tostring( minval ) + ".." + Clib::tostring( maxval ) + "]";
       func_result_ = new BError( report );
       return false;
     }
@@ -3134,6 +3135,11 @@ size_t Executor::sizeEstimate() const
     if ( bojectref != nullptr )
       size += bojectref->sizeEstimate();
   }
+  for ( const auto& module : availmodules )
+  {
+    if ( module != nullptr )
+      size += module->sizeEstimate();
+  }
   size += 3 * sizeof( ExecutorModule** ) + execmodules.capacity() * sizeof( ExecutorModule* );
   size += 3 * sizeof( ExecutorModule** ) + availmodules.capacity() * sizeof( ExecutorModule* );
   size += 3 * sizeof( unsigned* ) + breakpoints_.size() * sizeof( unsigned );
@@ -3142,6 +3148,15 @@ size_t Executor::sizeEstimate() const
   return size;
 }
 
+bool Executor::builtinMethodForced( const char*& methodname )
+{
+  if ( methodname[0] == '_' )
+  {
+    ++methodname;
+    return true;
+  }
+  return false;
+}
 
 #ifdef ESCRIPT_PROFILE
 void Executor::profile_escript( std::string name, unsigned long profile_start )
@@ -3212,5 +3227,5 @@ unsigned long Executor::GetTimeUs()
 }
 #endif
 #endif
-}
-}
+}  // namespace Bscript
+}  // namespace Pol

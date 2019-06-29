@@ -49,10 +49,11 @@ class UOExecutorModule;
 namespace Core
 {
 class UContainer;
+class UOExecutor;
 
 std::string format_description( unsigned int polflags, const std::string& descdef,
                                 unsigned short amount, const std::string suffix );
-}
+}  // namespace Core
 namespace Mobile
 {
 class Character;
@@ -61,7 +62,7 @@ namespace Multi
 {
 class UHouse;
 class UMulti;
-}
+}  // namespace Multi
 namespace Network
 {
 class Client;
@@ -87,6 +88,11 @@ public:
   virtual void double_click( Network::Client* client );
   virtual void builtin_on_use( Network::Client* client );
   virtual void walk_on( Mobile::Character* chr );
+
+  bool is_visible_to_me( const Mobile::Character* chr ) const;
+  virtual void inform_leftarea( Mobile::Character* wholeft );
+  virtual void inform_enteredarea( Mobile::Character* whoentered );
+  virtual void inform_moved( Mobile::Character* moved );
 
   const ItemDesc& itemdesc() const;
 
@@ -222,8 +228,8 @@ public:
   virtual Bscript::BObjectImp* set_script_member( const char* membername,
                                                   const std::string& value ) override;
   virtual Bscript::BObjectImp* set_script_member( const char* membername, int value ) override;
-  virtual Bscript::BObjectImp* set_script_member_id( const int id, const std::string& value )
-      override;  /// id test
+  virtual Bscript::BObjectImp* set_script_member_id(
+      const int id, const std::string& value ) override;  /// id test
   virtual Bscript::BObjectImp* set_script_member_id( const int id,
                                                      int value ) override;  /// id test
   virtual Bscript::BObjectImp* set_script_member_double( const char* membername,
@@ -241,6 +247,8 @@ public:
                                                      Bscript::Executor& ex ) override;
   Bscript::BObject call_custom_method( const char* methodname, Bscript::BObjectImpRefVec& pmore );
   Bscript::BObject call_custom_method( const char* methodname );
+  virtual bool get_method_hook( const char* methodname, Bscript::Executor* ex,
+                                Core::ExportScript** hook, unsigned int* PC ) const override;
 
 protected:  // only derived classes need the constructor
   virtual void printProperties( Clib::StreamWriter& sw ) const override;
@@ -255,6 +263,8 @@ public:
   Core::UContainer* container;
 
 protected:
+  Core::UOExecutor* uoexec_control();
+
   unsigned int decayat_gameclock_;
   u16 amount_;
   u8 slot_index_;
@@ -388,6 +398,6 @@ inline bool valid_equip_layer( const Item* item )
 {
   return valid_equip_layer( item->tile_layer );
 }
-}
-}
+}  // namespace Items
+}  // namespace Pol
 #endif

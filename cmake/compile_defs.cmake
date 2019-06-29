@@ -4,7 +4,7 @@ function(set_compile_flags target is_executable)
     ${CMAKE_CURRENT_SOURCE_DIR} #own folder
     ${PROJECT_BINARY_DIR} #global config
   )
-  target_include_directories(${target}  PRIVATE SYSTEM
+  target_include_directories(${target} SYSTEM PRIVATE
     ${BOOST_SOURCE_DIR} # boost
     "${CMAKE_CURRENT_LIST_DIR}/../../lib" #format/..
     "${CMAKE_CURRENT_LIST_DIR}/../../lib/picojson-1.3.0" #pico
@@ -229,11 +229,6 @@ function(warning_suppression target)
       /wd4786 #identifier trunc for debug
     >
     $<${linux}:
-      -Wno-unknown-pragmas
-      -Wno-unused-result
-      -Wno-unused-function
-      -Wno-format
-      -fno-strict-aliasing  
     >
   )
 endfunction()

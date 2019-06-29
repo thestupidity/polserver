@@ -29,6 +29,7 @@
 #include <stdlib.h>
 
 #include "../../bscript/berror.h"
+#include "../../bscript/executor.h"
 #include "../../clib/cfgelem.h"
 #include "../../clib/fileutil.h"
 #include "../../clib/logfacility.h"
@@ -46,13 +47,13 @@
 #include "../listenpt.h"
 #include "../mdelta.h"
 #include "../module/npcmod.h"
-#include "../module/osmod.h"
 #include "../module/uomod.h"
 #include "../multi/multi.h"
 #include "../npctmpl.h"
 #include "../scrdef.h"
 #include "../scrsched.h"
 #include "../scrstore.h"
+#include "../syshookscript.h"
 #include "../ufunc.h"
 #include "../uobjcnt.h"
 #include "../uobject.h"
@@ -114,9 +115,9 @@ void NPC::stop_scripts()
     // this will force the execution engine to stop running this script immediately
     // dont delete the executor here, since it could currently run
     ex->seterror( true );
-    ex->os_module->revive();
-    if ( ex->os_module->in_debugger_holdlist() )
-      ex->os_module->revive_debugged();
+    ex->revive();
+    if ( ex->in_debugger_holdlist() )
+      ex->revive_debugged();
   }
 }
 
@@ -147,7 +148,7 @@ const char* NPC::classname() const
 //                  unsigned short x2, unsigned short y2 )
 // to ufunc.cpp
 
-bool NPC::anchor_allows_move( Core::UFACING fdir ) const
+bool NPC::anchor_allows_move( Plib::UFACING fdir ) const
 {
   unsigned short newx = x + Core::move_delta[fdir].xmove;
   unsigned short newy = y + Core::move_delta[fdir].ymove;
@@ -171,7 +172,7 @@ bool NPC::anchor_allows_move( Core::UFACING fdir ) const
   return true;
 }
 
-bool NPC::could_move( Core::UFACING fdir ) const
+bool NPC::could_move( Plib::UFACING fdir ) const
 {
   short newz;
   Multi::UMulti* supporting_multi;
@@ -204,7 +205,7 @@ bool NPC::could_move( Core::UFACING fdir ) const
          !npc_path_blocked( fdir ) && anchor_allows_move( fdir );
 }
 
-bool NPC::npc_path_blocked( Core::UFACING fdir ) const
+bool NPC::npc_path_blocked( Plib::UFACING fdir ) const
 {
   if ( can_freemove() ||
        ( !this->master() && !Core::settingsManager.ssopt.mobiles_block_npc_movement ) )
@@ -297,6 +298,7 @@ void NPC::printProperties( Clib::StreamWriter& sw ) const
   if ( use_adjustments() != true )
     sw() << "\tUseAdjustments\t" << use_adjustments() << pf_endl;
 
+
   if ( has_orig_fire_resist() )
     sw() << "\tFireResist\t" << orig_fire_resist() << pf_endl;
   if ( has_orig_cold_resist() )
@@ -318,6 +320,32 @@ void NPC::printProperties( Clib::StreamWriter& sw ) const
     sw() << "\tPoisonDamage\t" << orig_poison_damage() << pf_endl;
   if ( has_orig_physical_damage() )
     sw() << "\tPhysicalDamage\t" << orig_physical_damage() << pf_endl;
+  if ( has_orig_lower_reagent_cost() )
+    sw() << "\tLowerReagentCost\t" << orig_lower_reagent_cost() << pf_endl;
+  if ( has_orig_spell_damage_increase() )
+    sw() << "\tSpellDamageIncrease\t" << orig_spell_damage_increase() << pf_endl;
+  if ( has_orig_faster_casting() )
+    sw() << "\tFasterCasting\t" << orig_faster_casting() << pf_endl;
+  if ( has_orig_faster_cast_recovery() )
+    sw() << "\tFasterCastRecovery\t" << orig_faster_cast_recovery() << pf_endl;
+  if ( has_orig_defence_increase() )
+    sw() << "\tDefenceIncrease\t" << orig_defence_increase() << pf_endl;
+  if ( has_orig_defence_increase_cap() )
+    sw() << "\tDefenceIncreaseCap\t" << orig_defence_increase_cap() << pf_endl;
+  if ( has_orig_lower_mana_cost() )
+    sw() << "\tLowerManaCost\t" << orig_lower_mana_cost() << pf_endl;
+  if ( has_orig_fire_resist_cap() )
+    sw() << "\tFireResistCap\t" << orig_fire_resist_cap() << pf_endl;
+  if ( has_orig_cold_resist_cap() )
+    sw() << "\tColdResistCap\t" << orig_cold_resist_cap() << pf_endl;
+  if ( has_orig_energy_resist_cap() )
+    sw() << "\tEnergyResistCap\t" << orig_energy_resist_cap() << pf_endl;
+  if ( has_orig_physical_resist_cap() )
+    sw() << "\tPhysicalResistCap\t" << orig_physical_resist_cap() << pf_endl;
+  if ( has_orig_poison_resist_cap() )
+    sw() << "\tPoisonResistCap\t" << orig_poison_resist_cap() << pf_endl;
+  if ( has_orig_luck() )
+    sw() << "\tLuck\t" << orig_luck() << pf_endl;
   if ( no_drop_exception() )
     sw() << "\tNoDropException\t" << no_drop_exception() << pf_endl;
 }
@@ -381,8 +409,8 @@ void NPC::readNpcProperties( Clib::ConfigElem& elem )
   if ( !script.get().empty() )
     start_script();
 
-  speech_color( elem.remove_ushort( "SpeechColor", Core::DEFAULT_TEXT_COLOR ) );
-  speech_font( elem.remove_ushort( "SpeechFont", Core::DEFAULT_TEXT_FONT ) );
+  speech_color( elem.remove_ushort( "SpeechColor", Plib::DEFAULT_TEXT_COLOR ) );
+  speech_font( elem.remove_ushort( "SpeechFont", Plib::DEFAULT_TEXT_FONT ) );
   saveonexit( elem.remove_bool( "SaveOnExit", true ) );
 
   mob_flags_.change( MOB_FLAGS::USE_ADJUSTMENTS, elem.remove_bool( "UseAdjustments", true ) );
@@ -407,12 +435,81 @@ void NPC::loadEquipablePropertiesNPC( Clib::ConfigElem& elem )
   auto apply = []( Core::ValueModPack v, int value ) -> Core::ValueModPack {
     return v.addToValue( static_cast<s16>( value ) );
   };
-  auto refresh = []( Core::ValueModPack v ) -> Core::ValueModPack { return v.addToValue( v.mod ); };
 
   std::string tmp;
   int value;
   if ( elem.remove_prop( "AR", &tmp ) && diceValue( tmp, &value ) )
     npc_ar_ = static_cast<u16>( value );
+  if ( elem.remove_prop( "LOWERREAGENTCOST", &tmp ) && diceValue( tmp, &value ) )
+  {
+    lower_reagent_cost( apply( lower_reagent_cost(), value ) );
+    orig_lower_reagent_cost( static_cast<s16>( value ) );
+  }
+  if ( elem.remove_prop( "SPELLDAMAGEINCREASE", &tmp ) && diceValue( tmp, &value ) )
+  {
+    spell_damage_increase( apply( spell_damage_increase(), value ) );
+    orig_spell_damage_increase( static_cast<s16>( value ) );
+  }
+  if ( elem.remove_prop( "FASTERCASTING", &tmp ) && diceValue( tmp, &value ) )
+  {
+    faster_casting( apply( faster_casting(), value ) );
+    orig_faster_casting( static_cast<s16>( value ) );
+  }
+  if ( elem.remove_prop( "FASTERCASTRECOVERY", &tmp ) && diceValue( tmp, &value ) )
+  {
+    faster_cast_recovery( apply( faster_cast_recovery(), value ) );
+    orig_faster_cast_recovery( static_cast<s16>( value ) );
+  }
+  if ( elem.remove_prop( "DEFENCEINCREASE", &tmp ) && diceValue( tmp, &value ) )
+  {
+    defence_increase( apply( defence_increase(), value ) );
+    orig_defence_increase( static_cast<s16>( value ) );
+  }
+  if ( elem.remove_prop( "DEFENCEINCREASECAP", &tmp ) && diceValue( tmp, &value ) )
+  {
+    defence_increase_cap( apply( defence_increase_cap(), value ) );
+    orig_defence_increase_cap( static_cast<s16>( value ) );
+  }
+  if ( elem.remove_prop( "LOWERMANACOST", &tmp ) && diceValue( tmp, &value ) )
+  {
+    lower_mana_cost( apply( lower_mana_cost(), value ) );
+    orig_lower_mana_cost( static_cast<s16>( value ) );
+  }
+  if ( elem.remove_prop( "HITCHANCE", &tmp ) && diceValue( tmp, &value ) )
+  {
+    hit_chance( apply( hit_chance(), value ) );
+    orig_hit_chance( static_cast<s16>( value ) );
+  }
+  if ( elem.remove_prop( "FIRERESISTCAP", &tmp ) && diceValue( tmp, &value ) )
+  {
+    fire_resist_cap( apply( fire_resist_cap(), value ) );
+    orig_fire_resist_cap( static_cast<s16>( value ) );
+  }
+  if ( elem.remove_prop( "COLDRESISTCAP", &tmp ) && diceValue( tmp, &value ) )
+  {
+    cold_resist_cap( apply( cold_resist_cap(), value ) );
+    orig_cold_resist_cap( static_cast<s16>( value ) );
+  }
+  if ( elem.remove_prop( "ENERGYRESISTCAP", &tmp ) && diceValue( tmp, &value ) )
+  {
+    energy_resist_cap( apply( energy_resist_cap(), value ) );
+    orig_energy_resist_cap( static_cast<s16>( value ) );
+  }
+  if ( elem.remove_prop( "PHYSICALRESISTCAP", &tmp ) && diceValue( tmp, &value ) )
+  {
+    physical_resist_cap( apply( physical_resist_cap(), value ) );
+    orig_physical_resist_cap( static_cast<s16>( value ) );
+  }
+  if ( elem.remove_prop( "POISONRESISTCAP", &tmp ) && diceValue( tmp, &value ) )
+  {
+    poison_resist_cap( apply( poison_resist_cap(), value ) );
+    orig_poison_resist_cap( static_cast<s16>( value ) );
+  }
+  if ( elem.remove_prop( "LUCK", &tmp ) && diceValue( tmp, &value ) )
+  {
+    luck( apply( luck(), value ) );
+    orig_luck( static_cast<s16>( value ) );
+  }
 
   // elemental start
   // first apply template value as value and if mod or value exist sum them
@@ -421,72 +518,52 @@ void NPC::loadEquipablePropertiesNPC( Clib::ConfigElem& elem )
     fire_resist( apply( fire_resist(), value ) );
     orig_fire_resist( static_cast<s16>( value ) );
   }
-  if ( has_fire_resist() )
-    fire_resist( refresh( fire_resist() ) );
   if ( elem.remove_prop( "COLDRESIST", &tmp ) && diceValue( tmp, &value ) )
   {
     cold_resist( apply( cold_resist(), value ) );
     orig_cold_resist( static_cast<s16>( value ) );
   }
-  if ( has_cold_resist() )
-    cold_resist( refresh( cold_resist() ) );
   if ( elem.remove_prop( "ENERGYRESIST", &tmp ) && diceValue( tmp, &value ) )
   {
     energy_resist( apply( energy_resist(), value ) );
     orig_energy_resist( static_cast<s16>( value ) );
   }
-  if ( has_energy_resist() )
-    energy_resist( refresh( energy_resist() ) );
   if ( elem.remove_prop( "POISONRESIST", &tmp ) && diceValue( tmp, &value ) )
   {
     poison_resist( apply( poison_resist(), value ) );
     orig_poison_resist( static_cast<s16>( value ) );
   }
-  if ( has_poison_resist() )
-    poison_resist( refresh( poison_resist() ) );
   if ( elem.remove_prop( "PHYSICALRESIST", &tmp ) && diceValue( tmp, &value ) )
   {
     physical_resist( apply( physical_resist(), value ) );
     orig_physical_resist( static_cast<s16>( value ) );
   }
-  if ( has_physical_resist() )
-    physical_resist( refresh( physical_resist() ) );
 
   if ( elem.remove_prop( "FIREDAMAGE", &tmp ) && diceValue( tmp, &value ) )
   {
     fire_damage( apply( fire_damage(), value ) );
     orig_fire_damage( static_cast<s16>( value ) );
   }
-  if ( has_fire_damage() )
-    fire_damage( refresh( fire_damage() ) );
   if ( elem.remove_prop( "COLDDAMAGE", &tmp ) && diceValue( tmp, &value ) )
   {
     cold_damage( apply( cold_damage(), value ) );
     orig_cold_damage( static_cast<s16>( value ) );
   }
-  if ( has_cold_damage() )
-    cold_damage( refresh( cold_damage() ) );
   if ( elem.remove_prop( "ENERGYDAMAGE", &tmp ) && diceValue( tmp, &value ) )
   {
     energy_damage( apply( energy_damage(), value ) );
     orig_energy_damage( static_cast<s16>( value ) );
   }
-  if ( has_energy_damage() )
-    energy_damage( refresh( energy_damage() ) );
   if ( elem.remove_prop( "POISONDAMAGE", &tmp ) && diceValue( tmp, &value ) )
   {
     poison_damage( apply( poison_damage(), value ) );
     orig_poison_damage( static_cast<s16>( value ) );
   }
-  if ( has_poison_damage() )
-    poison_damage( refresh( poison_damage() ) );
   if ( elem.remove_prop( "PHYSICALDAMAGE", &tmp ) && diceValue( tmp, &value ) )
   {
     physical_damage( apply( physical_damage(), value ) );
     orig_physical_damage( static_cast<s16>( value ) );
   }
-  if ( has_physical_damage() )
-    physical_damage( refresh( physical_damage() ) );
 }
 
 void NPC::readProperties( Clib::ConfigElem& elem )
@@ -554,9 +631,9 @@ void NPC::restart_script()
   {
     ex->seterror( true );
     // A Sleeping script would otherwise sit and wait until it wakes up to be killed.
-    ex->os_module->revive();
-    if ( ex->os_module->in_debugger_holdlist() )
-      ex->os_module->revive_debugged();
+    ex->revive();
+    if ( ex->in_debugger_holdlist() )
+      ex->revive_debugged();
     ex = nullptr;
     // when the NPC executor module destructs, it checks this NPC to see if it points
     // back at it.  If not, it leaves us alone.
@@ -580,9 +657,9 @@ void NPC::on_death( Items::Item* corpse )
   {
     // this will force the execution engine to stop running this script immediately
     ex->seterror( true );
-    ex->os_module->revive();
-    if ( ex->os_module->in_debugger_holdlist() )
-      ex->os_module->revive_debugged();
+    ex->revive();
+    if ( ex->in_debugger_holdlist() )
+      ex->revive_debugged();
   }
 
   destroy();
@@ -644,7 +721,7 @@ void NPC::on_pc_spoke( Character* src_chr, const char* speech, u8 texttype )
     {
       if ( ( !Core::settingsManager.ssopt.event_visibility_core_checks ) ||
            is_visible_to_me( src_chr ) )
-        ex->os_module->signal_event(
+        ex->signal_event(
             new Module::SpeechEvent( src_chr, speech,
                                      Core::TextTypeToString( texttype ) ) );  // DAVE added texttype
     }
@@ -660,7 +737,7 @@ void NPC::on_ghost_pc_spoke( Character* src_chr, const char* speech, u8 texttype
     {
       if ( ( !Core::settingsManager.ssopt.event_visibility_core_checks ) ||
            is_visible_to_me( src_chr ) )
-        ex->os_module->signal_event(
+        ex->signal_event(
             new Module::SpeechEvent( src_chr, speech,
                                      Core::TextTypeToString( texttype ) ) );  // DAVE added texttype
     }
@@ -685,7 +762,7 @@ void NPC::on_pc_spoke( Character* src_chr, const char* speech, u8 texttype, cons
       if ( ( !Core::settingsManager.ssopt.event_visibility_core_checks ) ||
            is_visible_to_me( src_chr ) )
       {
-        ex->os_module->signal_event( new Module::UnicodeSpeechEvent(
+        ex->signal_event( new Module::UnicodeSpeechEvent(
             src_chr, speech, Core::TextTypeToString( texttype ), wspeech, lang, speechtokens ) );
       }
     }
@@ -712,7 +789,7 @@ void NPC::on_ghost_pc_spoke( Character* src_chr, const char* speech, u8 texttype
       if ( ( !Core::settingsManager.ssopt.event_visibility_core_checks ) ||
            is_visible_to_me( src_chr ) )
       {
-        ex->os_module->signal_event( new Module::UnicodeSpeechEvent(
+        ex->signal_event( new Module::UnicodeSpeechEvent(
             src_chr, speech, Core::TextTypeToString( texttype ), wspeech, lang, speechtokens ) );
       }
     }
@@ -726,7 +803,7 @@ void NPC::inform_engaged( Character* engaged )
   {
     if ( ex->eventmask & Core::EVID_ENGAGED )
     {
-      ex->os_module->signal_event( new Module::EngageEvent( engaged ) );
+      ex->signal_event( new Module::EngageEvent( engaged ) );
     }
   }
   // Note, we don't do the base class thing, 'cause we have no client.
@@ -739,7 +816,7 @@ void NPC::inform_disengaged( Character* disengaged )
   {
     if ( ex->eventmask & Core::EVID_DISENGAGED )
     {
-      ex->os_module->signal_event( new Module::DisengageEvent( disengaged ) );
+      ex->signal_event( new Module::DisengageEvent( disengaged ) );
     }
   }
   // Note, we don't do the base class thing, 'cause we have no client.
@@ -754,8 +831,7 @@ void NPC::inform_criminal( Character* thecriminal )
     {
       if ( ( !Core::settingsManager.ssopt.event_visibility_core_checks ) ||
            is_visible_to_me( thecriminal ) )
-        ex->os_module->signal_event(
-            new Module::SourcedEvent( Core::EVID_GONE_CRIMINAL, thecriminal ) );
+        ex->signal_event( new Module::SourcedEvent( Core::EVID_GONE_CRIMINAL, thecriminal ) );
     }
   }
 }
@@ -770,7 +846,7 @@ void NPC::inform_leftarea( Character* wholeft )
       {
         if ( ( !Core::settingsManager.ssopt.event_visibility_core_checks ) ||
              is_visible_to_me( wholeft ) )
-          ex->os_module->signal_event( new Module::SourcedEvent( Core::EVID_LEFTAREA, wholeft ) );
+          ex->signal_event( new Module::SourcedEvent( Core::EVID_LEFTAREA, wholeft ) );
       }
     }
   }
@@ -786,8 +862,7 @@ void NPC::inform_enteredarea( Character* whoentered )
       {
         if ( ( !Core::settingsManager.ssopt.event_visibility_core_checks ) ||
              is_visible_to_me( whoentered ) )
-          ex->os_module->signal_event(
-              new Module::SourcedEvent( Core::EVID_ENTEREDAREA, whoentered ) );
+          ex->signal_event( new Module::SourcedEvent( Core::EVID_ENTEREDAREA, whoentered ) );
       }
     }
   }
@@ -818,12 +893,12 @@ void NPC::inform_moved( Character* moved )
       {
         if ( are_inrange && !were_inrange && ( ex->eventmask & ( Core::EVID_ENTEREDAREA ) ) )
         {
-          ex->os_module->signal_event( new Module::SourcedEvent( Core::EVID_ENTEREDAREA, moved ) );
+          ex->signal_event( new Module::SourcedEvent( Core::EVID_ENTEREDAREA, moved ) );
           signaled = true;
         }
         else if ( !are_inrange && were_inrange && ( ex->eventmask & ( Core::EVID_LEFTAREA ) ) )
         {
-          ex->os_module->signal_event( new Module::SourcedEvent( Core::EVID_LEFTAREA, moved ) );
+          ex->signal_event( new Module::SourcedEvent( Core::EVID_LEFTAREA, moved ) );
           signaled = true;
         }
       }
@@ -835,8 +910,7 @@ void NPC::inform_moved( Character* moved )
       {
         if ( ( !Core::settingsManager.ssopt.event_visibility_core_checks ) ||
              is_visible_to_me( moved ) )
-          ex->os_module->signal_event(
-              new Module::SourcedEvent( Core::EVID_OPPONENT_MOVED, moved ) );
+          ex->signal_event( new Module::SourcedEvent( Core::EVID_OPPONENT_MOVED, moved ) );
       }
     }
   }
@@ -866,9 +940,9 @@ void NPC::inform_imoved( Character* chr )
            is_visible_to_me( chr ) )
       {
         if ( are_inrange && !were_inrange && ( ex->eventmask & ( Core::EVID_ENTEREDAREA ) ) )
-          ex->os_module->signal_event( new Module::SourcedEvent( Core::EVID_ENTEREDAREA, chr ) );
+          ex->signal_event( new Module::SourcedEvent( Core::EVID_ENTEREDAREA, chr ) );
         else if ( !are_inrange && were_inrange && ( ex->eventmask & ( Core::EVID_LEFTAREA ) ) )
-          ex->os_module->signal_event( new Module::SourcedEvent( Core::EVID_LEFTAREA, chr ) );
+          ex->signal_event( new Module::SourcedEvent( Core::EVID_LEFTAREA, chr ) );
       }
     }
   }
@@ -888,7 +962,7 @@ bool NPC::send_event( Bscript::BObjectImp* event )
 {
   if ( ex != nullptr )
   {
-    if ( ex->os_module->signal_event( event ) )
+    if ( ex->signal_event( event ) )
       return true;
   }
   else
@@ -903,7 +977,7 @@ Bscript::BObjectImp* NPC::send_event_script( Bscript::BObjectImp* event )
 {
   if ( ex != nullptr )
   {
-    if ( ex->os_module->signal_event( event ) )
+    if ( ex->signal_event( event ) )
       return new Bscript::BLong( 1 );
     else
     {
@@ -925,7 +999,7 @@ void NPC::apply_raw_damage_hundredths( unsigned int damage, Character* source, b
   {
     if ( ex->eventmask & Core::EVID_DAMAGED )
     {
-      ex->os_module->signal_event(
+      ex->signal_event(
           new Module::DamageEvent( source, static_cast<unsigned short>( damage / 100 ) ) );
     }
   }
@@ -1004,26 +1078,55 @@ void NPC::refresh_ar()
 void NPC::resetEquipablePropertiesNPC()
 {
   if ( has_fire_resist() || has_orig_fire_resist() )
-    fire_resist( fire_resist().resetModAsValue().addToValue( orig_fire_resist() ) );
+    fire_resist( fire_resist().setAsValue( orig_fire_resist() ) );
   if ( has_cold_resist() || has_orig_cold_resist() )
-    cold_resist( cold_resist().resetModAsValue().addToValue( orig_cold_resist() ) );
+    cold_resist( cold_resist().setAsValue( orig_cold_resist() ) );
   if ( has_energy_resist() || has_orig_energy_resist() )
-    energy_resist( energy_resist().resetModAsValue().addToValue( orig_energy_resist() ) );
+    energy_resist( energy_resist().setAsValue( orig_energy_resist() ) );
   if ( has_poison_resist() || has_orig_poison_resist() )
-    poison_resist( poison_resist().resetModAsValue().addToValue( orig_poison_resist() ) );
+    poison_resist( poison_resist().setAsValue( orig_poison_resist() ) );
   if ( has_physical_resist() || has_orig_physical_resist() )
-    physical_resist( physical_resist().resetModAsValue().addToValue( orig_physical_resist() ) );
+    physical_resist( physical_resist().setAsValue( orig_physical_resist() ) );
 
   if ( has_fire_damage() || has_orig_fire_damage() )
-    fire_damage( fire_damage().resetModAsValue().addToValue( orig_fire_damage() ) );
+    fire_damage( fire_damage().setAsValue( orig_fire_damage() ) );
   if ( has_cold_damage() || has_orig_cold_damage() )
-    cold_damage( cold_damage().resetModAsValue().addToValue( orig_cold_damage() ) );
+    cold_damage( cold_damage().setAsValue( orig_cold_damage() ) );
   if ( has_energy_damage() || has_orig_energy_damage() )
-    energy_damage( energy_damage().resetModAsValue().addToValue( orig_energy_damage() ) );
+    energy_damage( energy_damage().setAsValue( orig_energy_damage() ) );
   if ( has_poison_damage() || has_orig_poison_damage() )
-    poison_damage( poison_damage().resetModAsValue().addToValue( orig_poison_damage() ) );
+    poison_damage( poison_damage().setAsValue( orig_poison_damage() ) );
   if ( has_physical_damage() || has_orig_physical_damage() )
-    physical_damage( physical_damage().resetModAsValue().addToValue( orig_physical_damage() ) );
+    physical_damage( physical_damage().setAsValue( orig_physical_damage() ) );
+
+  if ( has_lower_reagent_cost() || has_orig_lower_reagent_cost() )
+    lower_reagent_cost( lower_reagent_cost().setAsValue( orig_lower_reagent_cost() ) );
+  if ( has_spell_damage_increase() || has_orig_spell_damage_increase() )
+    spell_damage_increase( spell_damage_increase().setAsValue( orig_spell_damage_increase() ) );
+  if ( has_faster_casting() || has_orig_faster_casting() )
+    faster_casting( faster_casting().setAsValue( orig_faster_casting() ) );
+  if ( has_faster_cast_recovery() || has_orig_faster_cast_recovery() )
+    faster_cast_recovery( faster_cast_recovery().setAsValue( orig_faster_cast_recovery() ) );
+  if ( has_defence_increase() || has_orig_defence_increase() )
+    defence_increase( defence_increase().setAsValue( orig_defence_increase() ) );
+  if ( has_defence_increase_cap() || has_orig_defence_increase_cap() )
+    defence_increase_cap( defence_increase_cap().setAsValue( orig_defence_increase_cap() ) );
+  if ( has_lower_mana_cost() || has_orig_lower_mana_cost() )
+    lower_mana_cost( lower_mana_cost().setAsValue( orig_lower_mana_cost() ) );
+  if ( has_hit_chance() || has_orig_hit_chance() )
+    hit_chance( hit_chance().setAsValue( orig_hit_chance() ) );
+  if ( has_fire_resist_cap() || has_orig_fire_resist_cap() )
+    fire_resist_cap( fire_resist_cap().setAsValue( orig_fire_resist_cap() ) );
+  if ( has_cold_resist_cap() || has_orig_cold_resist_cap() )
+    cold_resist_cap( cold_resist_cap().setAsValue( orig_energy_resist_cap() ) );
+  if ( has_energy_resist_cap() || has_orig_energy_resist_cap() )
+    energy_resist_cap( energy_resist_cap().setAsValue( orig_energy_resist_cap() ) );
+  if ( has_physical_resist_cap() || has_orig_physical_resist_cap() )
+    physical_resist_cap( physical_resist_cap().setAsValue( orig_physical_resist_cap() ) );
+  if ( has_poison_resist_cap() || has_orig_poison_resist_cap() )
+    poison_resist_cap( poison_resist_cap().setAsValue( orig_poison_resist_cap() ) );
+  if ( has_luck() || has_orig_luck() )
+    luck( luck().setAsValue( orig_luck() ) );
 }
 
 size_t NPC::estimatedSize() const
@@ -1069,5 +1172,14 @@ std::string NPC::templatename() const
 {
   return template_name;
 }
+
+bool NPC::get_method_hook( const char* methodname, Bscript::Executor* executor,
+                           Core::ExportScript** hook, unsigned int* PC ) const
+{
+  if ( Core::gamestate.system_hooks.get_method_hook(
+           Core::gamestate.system_hooks.npc_method_script.get(), methodname, executor, hook, PC ) )
+    return true;
+  return base::get_method_hook( methodname, executor, hook, PC );
 }
-}
+}  // namespace Mobile
+}  // namespace Pol

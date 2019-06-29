@@ -12,13 +12,14 @@
 #include "../clib/clib_endian.h"
 #include "../clib/logfacility.h"
 #include "../clib/rawtypes.h"
+#include "../plib/systemstate.h"
 #include "item/item.h"
 #include "layers.h"
 #include "mobile/charactr.h"
 #include "multi/multi.h"
 #include "network/client.h"
-#include "pktdef.h"
-#include "pktin.h"
+#include "network/pktdef.h"
+#include "network/pktin.h"
 #include "realms/realm.h"
 #include "reftypes.h"
 #include "ufunc.h"
@@ -43,18 +44,24 @@ void equip_item( Network::Client* client, PKTIN_13* msg )
 
   if ( item == nullptr )
   {
-    POLLOG_ERROR.Format(
-        "Character 0x{:X} tried to equip item 0x{:X}, which did not exist in gotten_items.\n" )
-        << client->chr->serial << serial;
+    if ( Plib::systemstate.config.show_warning_item )
+    {
+      POLLOG_ERROR.Format(
+          "Character 0x{:X} tried to equip item 0x{:X}, which did not exist in gotten_items.\n" )
+          << client->chr->serial << serial;
+    }
     send_item_move_failure( client, MOVE_ITEM_FAILURE_ILLEGAL_EQUIP );  // 5
     return;
   }
 
   if ( item->serial != serial )
   {
-    POLLOG_ERROR.Format(
-        "Character 0x{:X} tried to equip item 0x{:X}, but had gotten item 0x{:X}\n" )
-        << client->chr->serial << serial << item->serial;
+    if ( Plib::systemstate.config.show_warning_item )
+    {
+      POLLOG_ERROR.Format(
+          "Character 0x{:X} tried to equip item 0x{:X}, but had gotten item 0x{:X}\n" )
+          << client->chr->serial << serial << item->serial;
+    }
     send_item_move_failure( client, MOVE_ITEM_FAILURE_ILLEGAL_EQUIP );  // 5
     item->gotten_by( nullptr );
     return;
@@ -142,5 +149,5 @@ void equip_item( Network::Client* client, PKTIN_13* msg )
   equip_on->equip( item );
   send_wornitem_to_inrange( equip_on, item );
 }
-}
-}
+}  // namespace Core
+}  // namespace Pol

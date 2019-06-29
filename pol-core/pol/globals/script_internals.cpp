@@ -4,8 +4,8 @@
 
 #include "../../clib/logfacility.h"
 #include "../../clib/passert.h"
+#include "../../clib/stlutil.h"
 #include "../../plib/systemstate.h"
-#include "../module/osmod.h"
 #include "../polsig.h"
 #include "../uoexec.h"
 #include "state.h"
@@ -62,7 +62,7 @@ void ScriptScheduler::deinitialize()
   }
 }
 
-ScriptScheduler::Memory ScriptScheduler::estimateSize() const
+ScriptScheduler::Memory ScriptScheduler::estimateSize( bool verbose ) const
 {
   Memory usage;
   memset( &usage, 0, sizeof( usage ) );
@@ -82,47 +82,85 @@ ScriptScheduler::Memory ScriptScheduler::estimateSize() const
   }
   usage.scriptstorage_count = scrstore.size();
 
-
+  fmt::Writer verbose_w;
+  if ( verbose )
+    verbose_w << GET_LOG_FILESTAMP << "\n";
   usage.script_size += 3 * sizeof( UOExecutor** ) + runlist.size() * sizeof( UOExecutor* );
+  if ( verbose )
+    verbose_w << "runlist:\n";
   for ( const auto& exec : runlist )
   {
     if ( exec != nullptr )
+    {
       usage.script_size += exec->sizeEstimate();
+      if ( verbose )
+        verbose_w << exec->scriptname() << " " << exec->sizeEstimate() << "\n";
+    }
   }
   usage.script_count += runlist.size();
 
   usage.script_size += 3 * sizeof( UOExecutor** ) + ranlist.size() * sizeof( UOExecutor* );
+  if ( verbose )
+    verbose_w << "ranlist:\n";
   for ( const auto& exec : ranlist )
   {
     if ( exec != nullptr )
+    {
       usage.script_size += exec->sizeEstimate();
+      if ( verbose )
+        verbose_w << exec->scriptname() << " " << exec->sizeEstimate() << "\n";
+    }
   }
   usage.script_count += ranlist.size();
 
+  if ( verbose )
+    verbose_w << "holdlist:\n";
   for ( const auto& hold : holdlist )
   {
     if ( hold.second != nullptr )
+    {
       usage.script_size += hold.second->sizeEstimate();
+      if ( verbose )
+        verbose_w << hold.second->scriptname() << " " << hold.second->sizeEstimate() << "\n";
+    }
     usage.script_size += sizeof( Core::polclock_t ) + ( sizeof( void* ) * 3 + 1 ) / 2;
   }
   usage.script_count += holdlist.size();
 
   usage.script_size += 3 * sizeof( void* );
+  if ( verbose )
+    verbose_w << "notimeoutholdlist:\n";
   for ( const auto& hold : notimeoutholdlist )
   {
     if ( hold != nullptr )
+    {
       usage.script_size += hold->sizeEstimate() + 3 * sizeof( void* );
+      if ( verbose )
+        verbose_w << hold->scriptname() << " " << hold->sizeEstimate() << "\n";
+    }
   }
   usage.script_count += notimeoutholdlist.size();
 
   usage.script_size += 3 * sizeof( void* );
+  if ( verbose )
+    verbose_w << "debuggerholdlist:\n";
   for ( const auto& hold : debuggerholdlist )
   {
     if ( hold != nullptr )
+    {
       usage.script_size += hold->sizeEstimate() + 3 * sizeof( void* );
+      if ( verbose )
+        verbose_w << hold->scriptname() << " " << hold->sizeEstimate() << "\n";
+    }
   }
   usage.script_count += debuggerholdlist.size();
+  if ( verbose )
+  {
+    auto log = OPEN_FLEXLOG( "log/memoryusagescripts.log", false );
+    FLEXLOG( log ) << verbose_w.str();
 
+    CLOSE_FLEXLOG( log );
+  }
 
   return usage;
 }
@@ -138,12 +176,11 @@ void ScriptScheduler::run_ready()
     passert_paranoid( ex != nullptr );
     runlist.pop_front();  // remove it directly, since itr can get invalid during execution
 
-    Module::OSExecutorModule* os_module = ex->os_module;
     Clib::scripts_thread_script = ex->scriptname();
 
     int inscount = 0;
     int totcount = 0;
-    int insleft = os_module->priority / priority_divide;
+    int insleft = ex->priority() / priority_divide;
     if ( insleft == 0 )
       insleft = 1;
 
@@ -158,7 +195,7 @@ void ScriptScheduler::run_ready()
 
       THREAD_CHECKPOINT( scripts, 113 );
 
-      if ( os_module->blocked() )
+      if ( ex->blocked() )
       {
         ex->warn_runaway_on_cycle =
             ex->instr_cycles + Plib::systemstate.config.runaway_script_threshold;
@@ -169,10 +206,10 @@ void ScriptScheduler::run_ready()
       if ( ex->instr_cycles == ex->warn_runaway_on_cycle )
       {
         ex->runaway_cycles += Plib::systemstate.config.runaway_script_threshold;
-        if ( os_module->warn_on_runaway )
+        if ( ex->warn_on_runaway() )
         {
           fmt::Writer tmp;
-          tmp << "Runaway script[" << os_module->pid() << "]: " << ex->scriptname() << " ("
+          tmp << "Runaway script[" << ex->pid() << "]: " << ex->scriptname() << " ("
               << ex->runaway_cycles << " cycles)\n";
           ex->show_context( tmp, ex->PC );
           SCRIPTLOG << tmp.str();
@@ -180,7 +217,7 @@ void ScriptScheduler::run_ready()
         ex->warn_runaway_on_cycle += Plib::systemstate.config.runaway_script_threshold;
       }
 
-      if ( os_module->critical )
+      if ( ex->critical() )
       {
         ++inscount;
         ++totcount;
@@ -218,7 +255,7 @@ void ScriptScheduler::run_ready()
         {
           ranlist.push_back( ex );
           // ranlist.splice( ranlist.end(), runlist, itr );
-          ex->pParent->os_module->revive();
+          ex->pParent->revive();
         }
         else
         {
@@ -233,30 +270,29 @@ void ScriptScheduler::run_ready()
         }
         continue;
       }
-      else if ( !ex->os_module->blocked() )
+      else if ( !ex->blocked() )
       {
         THREAD_CHECKPOINT( scripts, 115 );
 
         // runlist.erase( itr );
-        ex->os_module->in_hold_list_ = Module::OSExecutorModule::DEBUGGER_LIST;
+        ex->in_hold_list( Core::HoldListType::DEBUGGER_LIST );
         debuggerholdlist.insert( ex );
         continue;
       }
     }
 
-    if ( ex->os_module->blocked() )
+    if ( ex->blocked() )
     {
       THREAD_CHECKPOINT( scripts, 116 );
 
-      if ( ex->os_module->sleep_until_clock_ )
+      if ( ex->sleep_until_clock() )
       {
-        ex->os_module->in_hold_list_ = Module::OSExecutorModule::TIMEOUT_LIST;
-        ex->os_module->hold_itr_ =
-            holdlist.insert( HoldList::value_type( ex->os_module->sleep_until_clock_, ex ) );
+        ex->in_hold_list( Core::HoldListType::TIMEOUT_LIST );
+        ex->hold_itr( holdlist.insert( HoldList::value_type( ex->sleep_until_clock(), ex ) ) );
       }
       else
       {
-        ex->os_module->in_hold_list_ = Module::OSExecutorModule::NOTIMEOUT_LIST;
+        ex->in_hold_list( Core::HoldListType::NOTIMEOUT_LIST );
         notimeoutholdlist.insert( ex );
       }
 
@@ -319,5 +355,85 @@ bool ScriptScheduler::find_exec( unsigned int pid, UOExecutor** exec )
     return false;
   }
 }
+
+bool ScriptScheduler::logScriptVariables( const std::string& name ) const
+{
+  fmt::Writer log;
+  log << GET_LOG_FILESTAMP << " " << name << "\n";
+  std::vector<Bscript::Executor*> scripts;
+  for ( const auto& exec : runlist )
+  {
+    if ( exec != nullptr && stricmp( exec->scriptname().c_str(), name.c_str() ) == 0 )
+      scripts.push_back( exec );
+  }
+  for ( const auto& exec : ranlist )
+  {
+    if ( exec != nullptr && stricmp( exec->scriptname().c_str(), name.c_str() ) == 0 )
+      scripts.push_back( exec );
+  }
+  for ( const auto& exec : holdlist )
+  {
+    if ( exec.second != nullptr && stricmp( exec.second->scriptname().c_str(), name.c_str() ) == 0 )
+      scripts.push_back( exec.second );
+  }
+  for ( const auto& exec : notimeoutholdlist )
+  {
+    if ( exec != nullptr && stricmp( exec->scriptname().c_str(), name.c_str() ) == 0 )
+      scripts.push_back( exec );
+  }
+  for ( const auto& exec : scripts )
+  {
+    log << "Size: " << exec->sizeEstimate();
+    auto prog = const_cast<Bscript::EScriptProgram*>( exec->prog() );
+    if ( prog->read_dbg_file() != 0 )
+    {
+      log << " failed to load debug info\n";
+      break;
+    }
+    size_t i = 0;
+    log << "\nGlobals\n";
+    for ( const auto& global : exec->Globals2 )
+    {
+      log << "  ";
+      if ( prog->globalvarnames.size() > i )
+        log << prog->globalvarnames[i];
+      else
+        log << i;
+      ++i;
+      log << " (" << global->impref().typeOf() << ") " << global->impref().sizeEstimate() << "\n";
+    }
+    log << "Locals\n";
+    auto log_stack = [&]( unsigned PC, Bscript::BObjectRefVec* locals ) {
+      log << "  " << prog->dbg_filenames[prog->dbg_filenum[PC]] << ": " << prog->dbg_linenum[PC]
+          << "\n";
+
+      unsigned block = prog->dbg_ins_blocks[PC];
+      size_t left = locals->size();
+      while ( left )
+      {
+        while ( left <= prog->blocks[block].parentvariables )
+        {
+          block = prog->blocks[block].parentblockidx;
+        }
+        const Bscript::EPDbgBlock& progblock = prog->blocks[block];
+        size_t varidx = left - 1 - progblock.parentvariables;
+        left--;
+        Bscript::BObjectImp* ptr = ( *locals )[varidx]->impptr();
+        log << "  " << progblock.localvarnames[varidx] << " (" << ptr->typeOf() << ") "
+            << ptr->sizeEstimate() << "\n";
+      }
+    };
+    log_stack( exec->PC, exec->Locals2 );
+    for ( int stack_i = static_cast<int>( exec->ControlStack.size() ) - 1; stack_i >= 0; --stack_i )
+    {
+      log << "Stack " << stack_i << "\n";
+      log_stack( exec->ControlStack[stack_i].PC, exec->upperLocals2[stack_i] );
+    }
+  }
+  auto logf = OPEN_FLEXLOG( "log/scriptmemory.log", false );
+  FLEXLOG( logf ) << log.str();
+  CLOSE_FLEXLOG( logf );
+  return true;
 }
-}
+}  // namespace Core
+}  // namespace Pol
