@@ -18,7 +18,7 @@
 #include "../../clib/passert.h"
 #include "../../clib/strutil.h"
 #include "../globals/multidefs.h"
-#include "../uconst.h"
+#include "../../plib/uconst.h"
 
 namespace Pol
 {

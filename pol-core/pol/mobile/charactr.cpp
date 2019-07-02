@@ -1325,12 +1325,12 @@ bool Character::equippable( const Items::Item* item ) const
 
   if ( item->objtype_ != Core::settingsManager.extobj.boatmount )
   {
-    if ( ~Core::tile_flags( item->graphic ) & Plib::FLAG::EQUIPPABLE )
+    if ( ~Plib::tile_flags( item->graphic ) & Plib::FLAG::EQUIPPABLE )
     {
       return false;
     }
     // redundant sanity check
-    if ( Core::tilelayer( item->graphic ) != item->tile_layer )
+    if ( Plib::tilelayer( item->graphic ) != item->tile_layer )
     {
       return false;
     }

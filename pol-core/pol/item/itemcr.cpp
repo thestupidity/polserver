@@ -158,7 +158,7 @@ Item* Item::create( const ItemDesc& id, u32 serial )
   if ( item->objtype_ == Core::settingsManager.extobj.boatmount )
     item->tile_layer = Core::LAYER_MOUNT;
   else
-    item->tile_layer = Core::tilelayer( graphic );
+    item->tile_layer = Plib::tilelayer( graphic );
 
   // Have to be set after the item is created, because item graphic changes
   // Because items can have facing 0 as the lightsource we use as default 127 to check

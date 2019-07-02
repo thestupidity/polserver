@@ -19,7 +19,7 @@
 #include "../globals/uvars.h"
 #include "../item/item.h"
 #include "../item/itemdesc.h"
-#include "../uconst.h"
+#include "../../plib/uconst.h"
 #include "../syshookscript.h"
 #include "../uobjcnt.h"
 #include "multi.h"

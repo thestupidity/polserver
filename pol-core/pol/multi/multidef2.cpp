@@ -32,7 +32,7 @@ unsigned short MULTI_ELEM::graphic() const
 
 u32 MULTI_ELEM::flags() const
 {
-  return Core::tile_flags( graphic() );
+  return Plib::tile_flags( graphic() );
 }
 
 // 8/9/03 this seems to be used only by uofile03 -Syz

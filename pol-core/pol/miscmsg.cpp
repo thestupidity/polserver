@@ -61,6 +61,11 @@
 #include "uobject.h"
 #include "uoscrobj.h"
 #include <format/format.h>
+#include "realms/realm.h"
+#include "polclass.h"
+#include "module/uomod.h"
+#include "module/osmod.h"
+#include "uoexec.h"
 
 namespace Pol
 {
@@ -449,8 +454,7 @@ void handle_msg_BF( Client* client, PKTBI_BF* msg )
     if ( process != nullptr )
     {
       Core::UOExecutor& uoexec = process->uoexec;
-      Module::OSExecutorModule* os_module = uoexec.os_module;
-      os_module->signal_event(
+      uoexec.signal_event(
           new Module::BoatMovementEvent( chr, msg->boatmove.speed, msg->boatmove.direction ) );
     }
 
