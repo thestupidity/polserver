@@ -29,7 +29,19 @@ if(NOT EXISTS ${BOOST_FILESYSTEM_LIB} OR NOT EXISTS ${BOOST_SYSTEM_LIB})
     LOG_OUTPUT_ON_FAILURE 1
   )
   set_target_properties (boost PROPERTIES FOLDER 3rdParty)
+  add_custom_command(TARGET boost
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -DDIR=${BOOST_STAGE_LIB_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/list_boostlibs.cmake
+  )
 else()
   message("Boost already extracted")
+
+  message("Listing files in ${BOOST_STAGE_LIB_DIR}")
+file(GLOB dirs "${BOOST_STAGE_LIB_DIR}/*")
+foreach(dir ${dirs})
+    message("Found: ${dir}")
+endforeach()
+message("Done!")
+
 endif()
 

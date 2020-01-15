@@ -1,0 +1,6 @@
+message("Listing files in ${DIR}")
+file(GLOB dirs "${DIR}/*")
+foreach(dir ${dirs})
+    message("Found: ${dir}")
+endforeach()
+message("Done!")
