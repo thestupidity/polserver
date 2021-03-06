@@ -90,7 +90,7 @@ function (testwithcompiler)
     message(${script})
     string(REPLACE ".src" "" scriptname "${script}")
     if (EXISTS "${testdir}/${scriptname}.out" OR EXISTS "${testdir}/${scriptname}.err")
-      execute_process( COMMAND ${ecompile} -q -C ecompile.cfg ${script}
+      execute_process( COMMAND ${ecompile} -D -i -l -x -xt -q -C ecompile.cfg ${script}
         RESULT_VARIABLE ecompile_res
         OUTPUT_VARIABLE ecompile_out
         ERROR_VARIABLE ecompile_out)
