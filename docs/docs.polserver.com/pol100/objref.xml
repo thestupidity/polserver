@@ -147,7 +147,8 @@
 <member mname="faster_cast_recovery_mod" type="Integer" access="r/w" mdesc="Modifier for property, added to base of the object." />
 <member mname="luck_mod" type="Integer" access="r/w" mdesc="Modifier for property, added to base of the object." />
 <member mname="swing_speed_increase_mod" type="Integer" access="r/w" mdesc="Modifier for property, added to base of the object." />
-<member mname="attack_range_increase_mod" type="Integer" access="r/w" mdesc="Modifier of property, added to the base of the object." />
+<member mname="min_attack_range_increase_mod" type="Integer" access="r/w" mdesc="Modifier of property, added to the base of the object." />
+<member mname="max_attack_range_increase_mod" type="Integer" access="r/w" mdesc="Modifier of property, added to the base of the object." />
 <member mname="character_owner" type="OfflineCharacterRef" access="r/o" mdesc="Returns Character that owns the item, ie. the character whose backpack or equipped items contains the item." />
 
 <method proto="splitStackAt(x, y, z, realm, amount)" returns="Item" desc="Will split the item into 2 stacks. Returns a reference to the new stack made from item. Places new stack at the coordinates" />
@@ -308,7 +309,8 @@
 <member mname="faster_cast_recovery_mod" type="Integer" access="r/w" mdesc="Modifier for property, added to base property." />
 <member mname="luck_mod" type="Integer" access="r/w" mdesc="Modifier for property, added to base property." />
 <member mname="swing_speed_increase_mod" type="Integer" access="r/w" mdesc="Modifier for property, added to base property." />
-<member mname="attack_range_increase_mod" type="Integer" access="r/w" mdesc="Modifier for property, added to base property." />
+<member mname="min_attack_range_increase_mod" type="Integer" access="r/w" mdesc="Modifier for property, added to base property." />
+<member mname="max_attack_range_increase_mod" type="Integer" access="r/w" mdesc="Modifier for property, added to base property." />
 
 <method proto="setpoisoned(bool)" returns="true/error" desc="sets the character poisoned, controller of calling script is flagged as in repsystem" />
 <method proto="setparalyzed(bool)" returns="true/error" desc="sets the character paralyzed, controller of calling script is flagged as in repsystem" />

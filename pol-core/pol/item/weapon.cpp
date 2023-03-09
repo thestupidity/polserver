@@ -469,8 +469,9 @@ bool UWeapon::in_range( const Mobile::Character* wielder, const Mobile::Characte
                          << "maxrange: " << WEAPON_TMPL->maxrange << "\n"
                          << "maxrangemod: " << max_dist_mod << "\n"
                          << "has_los:  " << wielder->realm()->has_los( *wielder, *target ) << "\n";
-  return ( dist >= (WEAPON_TMPL->minrange+min_dist_mod)&& dist <= (WEAPON_TMPL->maxrange+max_dist_mod) &&
-           wielder->realm()->has_los( *wielder, *target ) );
+  return ( dist >= (WEAPON_TMPL->minrange+min_dist_mod)&&
+      dist <= (WEAPON_TMPL->maxrange+max_dist_mod) &&
+      wielder->realm()->has_los( *wielder, *target ) );
 }
 
 // FIXME weak, weak..
