@@ -461,16 +461,24 @@ bool UWeapon::in_range( const Mobile::Character* wielder, const Mobile::Characte
   unsigned short dist = pol_distance( wielder, target );
   signed short min_dist_mod = wielder->min_attack_range_increase().sum();
   signed short max_dist_mod = wielder->max_attack_range_increase().sum();
-  INFO_PRINT_TRACE( 22 ) << "in_range(0x" << fmt::hexu( wielder->serial ) << ",0x"
+  signed short min_dist = WEAPON_TMPL->minrange + min_dist_mod;
+  signed short max_dist = WEAPON_TMPL->maxrange + max_dist_mod;
+  min_dist = std::max( min_dist, (short)0 );
+  max_dist = std::max( max_dist, (short)0 );
+  min_dist = std::min( max_dist, min_dist );
+  max_dist = std::max( max_dist, min_dist );
+
+  INFO_PRINT_TRACE( 1 ) << "in_range(0x" << fmt::hexu( wielder->serial ) << ",0x"
                          << fmt::hexu( target->serial ) << "):\n"
                          << "dist:   " << dist << "\n"
-                         << "minrange: " << WEAPON_TMPL->minrange << "\n"
-                         << "minrangemod: " << min_dist_mod << "\n"
-                         << "maxrange: " << WEAPON_TMPL->maxrange << "\n"
-                         << "maxrangemod: " << max_dist_mod << "\n"
+                         << "weap_minrange: " << WEAPON_TMPL->minrange << "\n"
+                         << "mod_minrange: " << min_dist_mod << "\n"
+                         << "weap_maxrange: " << WEAPON_TMPL->maxrange << "\n"
+                         << "mod_maxrange: " << max_dist_mod << "\n"
+                         << "calc_min: " << min_dist << "\n"
+                         << "calc_max: " << max_dist << "\n"
                          << "has_los:  " << wielder->realm()->has_los( *wielder, *target ) << "\n";
-  return ( dist >= (WEAPON_TMPL->minrange+min_dist_mod)&&
-      dist <= (WEAPON_TMPL->maxrange+max_dist_mod) &&
+      return ( dist >= min_dist && dist <= max_dist &&
       wielder->realm()->has_los( *wielder, *target ) );
 }
 
